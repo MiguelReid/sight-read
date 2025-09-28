@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,15 +13,57 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: #eef1f5;
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* A4 page look */
+.a4-page {
+  width: 210mm;             /* A4 width */
+  min-height: 297mm;        /* A4 height */
+  background: #fff;
+  margin: 16px auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  display: flex;
+}
+
+.a4-content {
+  padding: 12mm 15mm;       /* page margins */
+  width: 100%;
+  background: #fff;
+  color: #000; /* ensure score renders solid black */
+}
+
+.a4-content .abcjs-container,
+.a4-content svg {
+  width: 100% !important;
+  height: auto;
+}
+
+/* Hide UI when printing; keep the page clean */
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .a4-page {
+    box-shadow: none;
+    margin: 0;
+    width: 210mm;
+    min-height: 297mm;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* keep light values even if OS is dark */
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+}
+
+/* Ensure the browser prints on A4 with margins */
+@page {
+  size: A4;
+  margin: 12mm 15mm;
 }
