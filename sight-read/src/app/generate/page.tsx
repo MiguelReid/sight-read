@@ -216,16 +216,16 @@ function makeBars(notePool: string[], durations: Duration[], unitsPerBar: number
 }
 
 // Build ABC with two voices (RH treble, LH bass), 4 bars per line
-function generateAbcForPreset(preset: Preset, barsPerLine = 4): string {
+function generateAbcForPreset(preset: Preset): string {
     const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, tempo, noteLength, grade } = preset;
 
     const rhBars = makeBars(notePoolRH, durations, unitsPerBar, bars);
     const lhBars = makeBars(notePoolLH, durations, unitsPerBar, bars);
 
     const systems: string[] = [];
-    for (let i = 0; i < bars; i += barsPerLine) {
-        const rhLine = rhBars.slice(i, i + barsPerLine).join(' | ') + (i + barsPerLine >= bars ? ' |]' : ' |');
-        const lhLine = lhBars.slice(i, i + barsPerLine).join(' | ') + (i + barsPerLine >= bars ? ' |]' : ' |');
+    for (let i = 0; i < bars; i += BARS_PER_LINE) {
+        const rhLine = rhBars.slice(i, i + BARS_PER_LINE).join(' | ') + (i + BARS_PER_LINE >= bars ? ' |]' : ' |');
+        const lhLine = lhBars.slice(i, i + BARS_PER_LINE).join(' | ') + (i + BARS_PER_LINE >= bars ? ' |]' : ' |');
         systems.push(`[V:RH] ${rhLine}`, `[V:LH] ${lhLine}`);
     }
 
@@ -243,33 +243,94 @@ function generateAbcForPreset(preset: Preset, barsPerLine = 4): string {
 
 export default function Generate() {
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const [grade, setGrade] = useState<number>(1);
 
-    // Generate AFTER mount to avoid SSR/client mismatch
-    const [abc, setAbc] = useState<string>('');                 // start empty on server
+    // Audio + render state
+    const [grade, setGrade] = useState<number>(1);
+    const [abc, setAbc] = useState<string>(''); // keep empty during SSR
     const [lastPreset, setLastPreset] = useState<Preset | null>(null);
+    const [visualObj, setVisualObj] = useState<any | null>(null);
+
+    // WebAudio synth refs
+    const audioCtxRef = useRef<AudioContext | null>(null);
+    const synthRef = useRef<any | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
 
     useEffect(() => {
         if (!containerRef.current || !abc) return;
         const width = containerRef.current.clientWidth || 680;
-        abcjs.renderAbc(containerRef.current, abc, {
+        const tunes = abcjs.renderAbc(containerRef.current, abc, {
             responsive: 'resize',
             staffwidth: width,
             scale: 1.35,
             add_classes: true,
         });
+        setVisualObj(tunes?.[0] ?? null);
     }, [abc]);
 
     const handleGenerate = () => {
-        const p = getPreset(grade); // randomize only here
+        // Stop any current audio before regenerating
+        if (synthRef.current) {
+            try { synthRef.current.stop(); } catch { }
+            setIsPlaying(false);
+        }
+        const p = getPreset(grade);
         setLastPreset(p);
-        setAbc(generateAbcForPreset(p, BARS_PER_LINE));
+        setAbc(generateAbcForPreset(p)); // uses your BARS_PER_LINE & LINES constants
     };
 
-    // Generate initial score on client after mount
+    // Initial client-only generation
     useEffect(() => {
         handleGenerate();
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Play/Stop controls
+    const handlePlay = async () => {
+        if (!visualObj || !lastPreset) return;
+
+        // Lazily create AudioContext
+        if (!audioCtxRef.current) {
+            const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+            audioCtxRef.current = new AC();
+        }
+
+        // Create or re-init synth for this tune
+        if (!synthRef.current) {
+            synthRef.current = new (abcjs as any).synth.CreateSynth();
+        } else {
+            try { synthRef.current.stop(); } catch { }
+        }
+
+        // Match playback tempo to your overlay (no Q: in ABC)
+        const msPerMeasure = Math.round((60000 / lastPreset.tempo) * 4); // 4/4
+
+        await synthRef.current.init({
+            visualObj,
+            audioContext: audioCtxRef.current,
+            millisecondsPerMeasure: msPerMeasure,
+            options: {
+                // pan: [-0.3, 0.3]
+            }
+        });
+
+        await synthRef.current.prime();
+        await synthRef.current.start();
+        setIsPlaying(true);
+    };
+
+    const handleStop = () => {
+        if (synthRef.current) {
+            try { synthRef.current.stop(); } catch { }
+        }
+        setIsPlaying(false);
+    };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            try { synthRef.current?.stop(); } catch { }
+            audioCtxRef.current?.close?.();
+        };
     }, []);
 
     return (
@@ -300,29 +361,61 @@ export default function Generate() {
                     </select>
                 </div>
 
-                <div style={{ marginBottom: '0.75rem', color: '#555' }}>
-                    Key: {lastPreset ? lastPreset.key : '—'}
-                    {' | '}
-                    Tempo: {lastPreset ? lastPreset.tempo : '—'} bpm
-                    {' | '}
-                    Note length: {lastPreset ? lastPreset.noteLength : '—'}
-                    {' | '}
-                    Bars: {lastPreset ? lastPreset.bars : '—'}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '0.75rem', color: '#555' }}>
+                    <span>Key: {lastPreset ? lastPreset.key : '—'}</span>
+                    <span>|</span>
+                    <span>Tempo: {lastPreset ? lastPreset.tempo : '—'} bpm</span>
+                    <span>|</span>
+                    <span>Note length: {lastPreset ? lastPreset.noteLength : '—'}</span>
+                    <span>|</span>
+                    <span>Bars: {lastPreset ? lastPreset.bars : '—'}</span>
                 </div>
 
-                <button
-                    onClick={handleGenerate}
-                    style={{
-                        padding: '0.6rem 1rem',
-                        background: '#1e90ff',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: 6,
-                        cursor: 'pointer'
-                    }}
-                >
-                    Generate New
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                        onClick={handleGenerate}
+                        style={{
+                            padding: '0.6rem 1rem',
+                            background: '#1e90ff',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 6,
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Generate New
+                    </button>
+                    <button
+                        onClick={handlePlay}
+                        disabled={!abc || isPlaying}
+                        style={{
+                            padding: '0.6rem 1rem',
+                            background: isPlaying ? '#8aaed8' : '#28a745',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 6,
+                            cursor: isPlaying ? 'default' : 'pointer'
+                        }}
+                        title="Play"
+                    >
+                        Play
+                    </button>
+                    <button
+                        onClick={handleStop}
+                        disabled={!isPlaying}
+                        style={{
+                            padding: '0.6rem 1rem',
+                            background: '#dc3545',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 6,
+                            cursor: !isPlaying ? 'default' : 'pointer'
+                        }}
+                        title="Stop"
+                    >
+                        Stop
+                    </button>
+                </div>
             </div>
 
             <div className="a4-page">
