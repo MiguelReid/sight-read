@@ -8,6 +8,8 @@ const LINES = 5;
 const TOTAL_BARS = BARS_PER_LINE * LINES;
 
 type Duration = { token: string; units: number; weight: number };
+type LHStyle = 'none' | 'drone' | 'halves' | 'quarters' | 'eighths' | 'simple-melodic' | 'melodic';
+
 type Preset = {
     grade: number;
     tempo: number;
@@ -18,6 +20,7 @@ type Preset = {
     durations: Duration[];
     notePoolRH: string[];
     notePoolLH: string[];
+    lhStyle: LHStyle;
 };
 
 type KeyDef = { label: string; acc: number }; // acc = number of sharps(+) or flats(-)
@@ -175,6 +178,23 @@ function getPreset(grade: number): Preset {
     if (effComplexity >= 0.35) notePoolLH.push('C', 'D', 'E', 'F', 'G', 'A', 'B');
     if (effComplexity >= 0.75) notePoolLH.push('C,,', 'D,,', 'E,,', 'F,,', 'G,,');
 
+    // 6) Left-hand style by grade (bigger differences between grades)
+    // - 1-2: no LH at all
+    // - 3:   one sustained note per bar (drone)
+    // - 4:   two notes per bar (halves)
+    // - 5:   four notes per bar (quarters)
+    // - 6:   eight notes per bar (eighths)
+    // - 7:   simple melodic (no fastest subdivisions)
+    // - 8:   full melodic/random in both hands
+    let lhStyle: LHStyle = 'none';
+    if (g <= 2) lhStyle = 'none';
+    else if (g === 3) lhStyle = 'drone';
+    else if (g === 4) lhStyle = 'halves';
+    else if (g === 5) lhStyle = 'quarters';
+    else if (g === 6) lhStyle = 'eighths';
+    else if (g === 7) lhStyle = 'simple-melodic';
+    else lhStyle = 'melodic';
+
     return {
         grade: g,
         tempo,
@@ -185,6 +205,7 @@ function getPreset(grade: number): Preset {
         durations,
         notePoolRH,
         notePoolLH,
+        lhStyle,
     };
 }
 
@@ -215,30 +236,103 @@ function makeBars(notePool: string[], durations: Duration[], unitsPerBar: number
     return out;
 }
 
+function tokenFromUnits(units: number): string {
+    return units === 1 ? '' : String(units);
+}
+
+function makeLeftHandBars(
+    style: LHStyle,
+    notePool: string[],
+    durations: Duration[],
+    unitsPerBar: number,
+    bars: number
+): string[] {
+    if (style === 'none') return [];
+
+    const out: string[] = [];
+    for (let b = 0; b < bars; b++) {
+        // Pick a base note for this bar
+        const note = notePool[Math.floor(Math.random() * notePool.length)];
+
+        if (style === 'drone') {
+            // One sustained note filling the bar
+            out.push(`${note}${tokenFromUnits(unitsPerBar)}`);
+            continue;
+        }
+
+        if (style === 'halves' || style === 'quarters' || style === 'eighths') {
+            const divisions = style === 'halves' ? 2 : style === 'quarters' ? 4 : 8;
+            const segUnits = Math.max(1, Math.floor(unitsPerBar / divisions));
+            const segToken = tokenFromUnits(segUnits);
+            const tokens: string[] = [];
+            let used = 0;
+            while (used < unitsPerBar) {
+                // Vary notes slightly within the bar
+                const n = notePool[Math.floor(Math.random() * notePool.length)];
+                tokens.push(`${n}${segToken}`);
+                used += segUnits;
+                if (used + segUnits > unitsPerBar && used < unitsPerBar) {
+                    // pad remainder with a final note
+                    tokens.push(`${n}${tokenFromUnits(unitsPerBar - used)}`);
+                    break;
+                }
+            }
+            out.push(tokens.join(' '));
+            continue;
+        }
+
+        // Melodic styles: use the durations plan, but for 'simple-melodic' avoid the fastest subdivision
+        const durList = style === 'simple-melodic'
+            ? durations.filter(d => d.units > 1) // drop 1-unit (sixteenth) when L:1/16
+            : durations;
+
+        let used = 0;
+        const tokens: string[] = [];
+        while (used < unitsPerBar) {
+            const candidates = durList.filter(d => d.units <= unitsPerBar - used);
+            const d = weightedPick(candidates.length ? candidates : durList);
+            const n = notePool[Math.floor(Math.random() * notePool.length)];
+            tokens.push(`${n}${d.token}`);
+            used += d.units;
+        }
+        out.push(tokens.join(' '));
+    }
+    return out;
+}
+
 // Build ABC with two voices (RH treble, LH bass), 4 bars per line
 function generateAbcForPreset(preset: Preset): string {
-    const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, tempo, noteLength, grade } = preset;
+    const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, noteLength, lhStyle } = preset;
 
     const rhBars = makeBars(notePoolRH, durations, unitsPerBar, bars);
-    const lhBars = makeBars(notePoolLH, durations, unitsPerBar, bars);
+    const includeLH = lhStyle !== 'none';
+    const lhBars = includeLH ? makeLeftHandBars(lhStyle, notePoolLH, durations, unitsPerBar, bars) : [];
 
     const systems: string[] = [];
     for (let i = 0; i < bars; i += BARS_PER_LINE) {
         const rhLine = rhBars.slice(i, i + BARS_PER_LINE).join(' | ') + (i + BARS_PER_LINE >= bars ? ' |]' : ' |');
-        const lhLine = lhBars.slice(i, i + BARS_PER_LINE).join(' | ') + (i + BARS_PER_LINE >= bars ? ' |]' : ' |');
-        systems.push(`[V:RH] ${rhLine}`, `[V:LH] ${lhLine}`);
+        if (includeLH) {
+            const lhLine = lhBars.slice(i, i + BARS_PER_LINE).join(' | ') + (i + BARS_PER_LINE >= bars ? ' |]' : ' |');
+            systems.push(`[V:RH] ${rhLine}`, `[V:LH] ${lhLine}`);
+        } else {
+            systems.push(`[V:RH] ${rhLine}`);
+        }
     }
 
-    return [
+    const header = [
         'X:1',
         'M:4/4',
         `L:${noteLength}`,
         `K:${key}`,
-        '%%staves {RH LH}', // brace for both clefs
-        'V:RH clef=treble',
-        'V:LH clef=bass',
-        ...systems
-    ].join('\n');
+    ];
+
+    if (includeLH) {
+        header.push('%%staves {RH LH}', 'V:RH clef=treble', 'V:LH clef=bass');
+    } else {
+        header.push('V:RH clef=treble');
+    }
+
+    return [...header, ...systems].join('\n');
 }
 
 export default function Generate() {
