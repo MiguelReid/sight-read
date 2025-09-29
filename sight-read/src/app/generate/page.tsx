@@ -363,12 +363,6 @@ export default function Generate() {
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '0.75rem', color: '#555' }}>
                     <span>Key: {lastPreset ? lastPreset.key : '—'}</span>
-                    <span>|</span>
-                    <span>Tempo: {lastPreset ? lastPreset.tempo : '—'} bpm</span>
-                    <span>|</span>
-                    <span>Note length: {lastPreset ? lastPreset.noteLength : '—'}</span>
-                    <span>|</span>
-                    <span>Bars: {lastPreset ? lastPreset.bars : '—'}</span>
                 </div>
 
                 <div style={{ display: 'flex', gap: 8 }}>

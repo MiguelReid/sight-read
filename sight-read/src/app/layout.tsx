@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from '../../components/Sidebar';
+import NavigationBar from '../../components/NavigationBar';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,12 +22,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body style={{ margin: 0 }}>
-        <div style={{ display: 'flex' }}>
-          <Sidebar />
-          <main style={{ flex: 1, padding: '2rem' }}>
-            {children}
-          </main>
-        </div>
+        {/* Top bar */}
+        <NavigationBar />
+        {/* Page content */}
+        <main style={{ padding: '24px' }}>
+          {children}
+        </main>
       </body>
     </html>
   );

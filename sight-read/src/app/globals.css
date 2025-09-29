@@ -12,6 +12,55 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Top bar styles */
+.topbar {
+  position: sticky; /* stays at top when scrolling */
+  top: 0;
+  z-index: 50;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb; /* subtle divider */
+}
+
+.topbar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;      /* center the items */
+  gap: 8px;
+  padding: 0 16px;
+}
+
+/* Horizontal, centered menu */
+.topbar-menu {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.topbar-logo-img {
+  display: block;
+  height: 22px;
+  width: auto;
+  cursor: default;
+}
+
+.topbar-link {
+  color: #111827;
+  text-decoration: none;
+  font-weight: 400;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.topbar-link:hover {
+  background: #f3f4f6;
+}
+
 /* A4 page look */
 .a4-page {
   width: 210mm;  
