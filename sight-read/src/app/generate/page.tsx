@@ -99,7 +99,7 @@ function generateAbcForPreset(preset: Preset, barsPerLine = 4): string {
   for (let i = 0; i < bars; i += barsPerLine) {
     const rhLine = rhBars.slice(i, i + barsPerLine).join(' | ') + (i + barsPerLine >= bars ? ' |]' : ' |');
     const lhLine = lhBars.slice(i, i + barsPerLine).join(' | ') + (i + barsPerLine >= bars ? ' |]' : ' |');
-    systems.push('V:RH', rhLine, 'V:LH', lhLine);
+    systems.push(`[V:RH] ${rhLine}`, `[V:LH] ${lhLine}`);
   }
 
   return [
@@ -109,9 +109,9 @@ function generateAbcForPreset(preset: Preset, barsPerLine = 4): string {
     `L:${noteLength}`,
     `Q:1/4=${tempo}`,
     `K:${key}`,
+    '%%staves {LH RH}',   // brace and align the two staves
     'V:RH clef=treble',
     'V:LH clef=bass',
-    '%%staves {RH LH}',   // brace and align the two staves
     ...systems
   ].join('\n');
 }
