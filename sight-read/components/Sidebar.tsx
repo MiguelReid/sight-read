@@ -10,7 +10,7 @@ const navItems = [
 export default function Sidebar() {
   return (
     <nav style={{
-      width: '220px',
+      width: '200px',
       height: '100vh',
       background: '#222',
       color: '#fff',
