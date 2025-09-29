@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import abcjs from 'abcjs';
 
+const BARS_PER_LINE = 5;
+const LINES = 5;
+const TOTAL_BARS = BARS_PER_LINE * LINES;
+
 type Duration = { token: string; units: number; weight: number };
 type Preset = {
     grade: number;
     tempo: number;
-    key: string;              // ABC K: like "C", "F#m", "Bb", etc.
+    key: string;
     bars: number;
     noteLength: '1/8' | '1/16';
     unitsPerBar: number;
@@ -175,7 +179,7 @@ function getPreset(grade: number): Preset {
         grade: g,
         tempo,
         key,
-        bars: 16,
+        bars: TOTAL_BARS,
         noteLength,
         unitsPerBar,
         durations,
@@ -230,7 +234,7 @@ function generateAbcForPreset(preset: Preset, barsPerLine = 4): string {
         'M:4/4',
         `L:${noteLength}`,
         `K:${key}`,
-        '%%staves {RH LH}',   // brace for both clefs
+        '%%staves {RH LH}', // brace for both clefs
         'V:RH clef=treble',
         'V:LH clef=bass',
         ...systems
@@ -257,9 +261,9 @@ export default function Generate() {
     }, [abc]);
 
     const handleGenerate = () => {
-        const p = getPreset(grade);               // randomize only here
+        const p = getPreset(grade); // randomize only here
         setLastPreset(p);
-        setAbc(generateAbcForPreset(p, 4));       // 4 bars per line
+        setAbc(generateAbcForPreset(p, BARS_PER_LINE));
     };
 
     // Generate initial score on client after mount
@@ -323,16 +327,18 @@ export default function Generate() {
 
             <div className="a4-page">
                 <div className="a4-content">
-                    {/* HTML title with controlled spacing */}
+                    {/* Title and subtitle */}
                     <div className="score-title">
-                        {lastPreset ? `Grade ${lastPreset.grade} Practice` : `Grade ${grade} Practice`}
+                        <div className="main">Sight Reading Practice</div>
+                        <div className="sub">{lastPreset ? `Grade ${lastPreset.grade}` : `Grade ${grade}`}</div>
                     </div>
 
-                    {/* Fixed tempo overlay aligned above clefs */}
+                    {/* Fixed overlays and score */}
                     <div className="score-wrap">
                         <div className="tempo-overlay">
                             {lastPreset ? `♩ = ${lastPreset.tempo}` : ''}
                         </div>
+                        <div className="brand-overlay">SightRead</div>
                         <div ref={containerRef} className="score-surface" />
                     </div>
                 </div>
