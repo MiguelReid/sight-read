@@ -6,6 +6,7 @@ import abcjs from 'abcjs';
 const BARS_PER_LINE = 5;
 const LINES = 5;
 const TOTAL_BARS = BARS_PER_LINE * LINES;
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 type Duration = { token: string; units: number; weight: number };
 type LHStyle = 'none' | 'drone' | 'halves' | 'quarters' | 'eighths' | 'simple-melodic' | 'melodic';
@@ -240,6 +241,85 @@ function tokenFromUnits(units: number): string {
     return units === 1 ? '' : String(units);
 }
 
+// --- Harmonic helpers ---
+function parseKeyLabel(key: string): { tonicLetter: string; isMinor: boolean } {
+    const isMinor = key.endsWith('m');
+    const tonicLetter = key.replace('m', '')[0].toUpperCase();
+    return { tonicLetter, isMinor };
+}
+
+function diatonicLettersFrom(tonicLetter: string): string[] {
+    const idx = LETTERS.indexOf(tonicLetter.toUpperCase());
+    const seq: string[] = [];
+    for (let i = 0; i < 7; i++) seq.push(LETTERS[(idx + i) % 7]);
+    return seq;
+}
+
+// degree: 1..7 (I..VII). Returns triad letters [root, third, fifth]
+function triadForDegree(degree: number, tonicLetter: string): [string, string, string] {
+    const seq = diatonicLettersFrom(tonicLetter);
+    const i = (degree - 1) % 7;
+    return [seq[i], seq[(i + 2) % 7], seq[(i + 4) % 7]];
+}
+
+function seventhForDegree(degree: number, tonicLetter: string): string {
+    const seq = diatonicLettersFrom(tonicLetter);
+    const i = (degree - 1) % 7;
+    return seq[(i + 6) % 7]; // diatonic seventh above root
+}
+
+function ninthForDegree(degree: number, tonicLetter: string): string {
+    const seq = diatonicLettersFrom(tonicLetter);
+    const i = (degree - 1) % 7;
+    return seq[(i + 1) % 7]; // diatonic 9th (same letter as 2nd)
+}
+
+function pickNoteFromPoolByLetter(notePool: string[], letter: string, preferLower = false): string | null {
+    const target = letter.toLowerCase();
+    const candidates = notePool.filter(n => n[0].toLowerCase() === target);
+    if (!candidates.length) return null;
+    if (!preferLower) return candidates[Math.floor(Math.random() * candidates.length)];
+    // Prefer lower by scoring commas/uppercase vs apostrophes
+    const scored = candidates.map(n => ({
+        n,
+        score: (/[A-G],[,]*/.test(n) ? 3 : /[A-G]$/.test(n) ? 2 : /[a-g]$/.test(n) ? 1 : 0) - (/'/.test(n) ? 1 : 0)
+    })).sort((a, b) => b.score - a.score);
+    return scored[0].n;
+}
+
+function extractDurationToken(token: string): string {
+    const m = token.match(/[0-9/]+$/);
+    return m ? m[0] : '';
+}
+
+function buildChordToken(
+    notePool: string[],
+    letters: string[],
+    durationToken: string,
+    preferLower: boolean
+): string {
+    const notes: string[] = [];
+    for (const L of letters) {
+        const nn = pickNoteFromPoolByLetter(notePool, L, preferLower) || pickNoteFromPoolByLetter(notePool, L, false);
+        if (nn) notes.push(nn);
+    }
+    const inside = notes.join(''); // no spaces inside chord per ABC
+    return `[${inside}]${durationToken}`;
+}
+
+function replaceBarEdgeWithChordOrTone(
+    bar: string,
+    notePool: string[],
+    letters: string[],
+    preferLower: boolean,
+    asChord: boolean
+): string {
+    const tokens = bar.trim().split(/\s+/);
+    if (!tokens.length) return bar;
+    // pick first token for start, or last token for end by caller
+    return bar; // caller handles
+}
+
 function makeLeftHandBars(
     style: LHStyle,
     notePool: string[],
@@ -300,13 +380,128 @@ function makeLeftHandBars(
     return out;
 }
 
-// Build ABC with two voices (RH treble, LH bass), 4 bars per line
+type StartPolicy =
+    | 'LH_root__RH_third'      // solid tonal start, melody defines mode
+    | 'LH_root5__RH_root'      // strong anchor, very clear key
+    | 'LH_fullTriad__RH_third' // denser intro (harder grades)
+    | 'LH_root__RH_root';      // ultra-simple (very easy)
+
+function pickStartPolicy(grade: number, lhStyle: LHStyle): StartPolicy {
+    // Bias by difficulty and whether LH exists
+    if (lhStyle === 'none') return grade <= 3 ? 'LH_root__RH_root' : 'LH_root__RH_third';
+    if (grade <= 2) return 'LH_root__RH_root';
+    if (grade <= 4) return Math.random() < 0.6 ? 'LH_root5__RH_root' : 'LH_root__RH_third';
+    if (grade <= 6) return Math.random() < 0.6 ? 'LH_root5__RH_root' : 'LH_root__RH_third';
+    // advanced: sometimes full triad
+    const r = Math.random();
+    if (r < 0.45) return 'LH_root5__RH_root';
+    if (r < 0.75) return 'LH_root__RH_third';
+    return 'LH_fullTriad__RH_third';
+}
+
+function pickSpecificChordTone(letters: [string, string, string], which: 'root' | 'third' | 'fifth' | 'any'): string {
+    if (which === 'any') return letters[Math.floor(Math.random() * letters.length)];
+    if (which === 'root') return letters[0];
+    if (which === 'third') return letters[1];
+    return letters[2]; // 'fifth'
+}
+
+
+// Build ABC with two voices (RH treble, LH bass), 4 bars per line, with harmonic start/end enforcement
 function generateAbcForPreset(preset: Preset): string {
     const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, noteLength, lhStyle } = preset;
 
-    const rhBars = makeBars(notePoolRH, durations, unitsPerBar, bars);
+    let rhBars = makeBars(notePoolRH, durations, unitsPerBar, bars);
     const includeLH = lhStyle !== 'none';
-    const lhBars = includeLH ? makeLeftHandBars(lhStyle, notePoolLH, durations, unitsPerBar, bars) : [];
+    let lhBars = includeLH ? makeLeftHandBars(lhStyle, notePoolLH, durations, unitsPerBar, bars) : [];
+
+    // --- Harmonic rule: start/end on I/III/V tones (or chords) with musical voicings ---
+    const { tonicLetter } = parseKeyLabel(key);
+
+    // Degrees we allow at edges (prioritize I and V, then III)
+    const allowedDegreesBase = [1, 5, 3];
+    const startDegree = allowedDegreesBase[Math.floor(Math.random() * allowedDegreesBase.length)];
+    const endDegree = allowedDegreesBase[Math.floor(Math.random() * allowedDegreesBase.length)];
+
+    const startTriad = triadForDegree(startDegree, tonicLetter); // [root, third, fifth] as letters
+    const endTriad = triadForDegree(endDegree, tonicLetter);
+
+    const add7 = preset.grade >= 6;
+    const add9 = preset.grade >= 8;
+    const startExts: string[] = add7 ? [seventhForDegree(startDegree, tonicLetter)] : [];
+    const endExts: string[] = add7 ? [seventhForDegree(endDegree, tonicLetter)] : [];
+    if (add9) {
+        startExts.push(ninthForDegree(startDegree, tonicLetter));
+        endExts.push(ninthForDegree(endDegree, tonicLetter));
+    }
+
+    // --- Pick a start policy (decides LH/RH roles on the very first event) ---
+    const startPolicy = pickStartPolicy(preset.grade, lhStyle);
+
+    // --- RIGHT HAND: set first and last melody notes to chord tones ---
+    const rhFirstTokens = rhBars[0].trim().split(/\s+/);
+    const rhFirstDur = extractDurationToken(rhFirstTokens[0]);
+
+    // Choose RH starting chord tone by policy
+    let rhStartChoice: 'root' | 'third' | 'fifth' | 'any' = 'any';
+    if (startPolicy.endsWith('RH_third')) rhStartChoice = 'third';
+    else if (startPolicy.endsWith('RH_root')) rhStartChoice = 'root';
+
+    const rhStartLetter = pickSpecificChordTone(startTriad, rhStartChoice);
+    const rhFirstNote = pickNoteFromPoolByLetter(notePoolRH, rhStartLetter, false) || rhFirstTokens[0];
+    rhFirstTokens[0] = `${rhFirstNote}${rhFirstDur}`;
+    rhBars[0] = rhFirstTokens.join(' ');
+
+    // RH ending tone (cadential feel): prefer root or third; allow fifth occasionally
+    const lastIdx = bars - 1;
+    const rhLastTokens = rhBars[lastIdx].trim().split(/\s+/);
+    const rhLastDur = extractDurationToken(rhLastTokens[rhLastTokens.length - 1]);
+    const rhEndPref: ('root' | 'third' | 'fifth')[] = Math.random() < 0.7 ? ['root', 'third', 'fifth'] : ['root', 'fifth', 'third'];
+    const rhEndLetter = pickSpecificChordTone(endTriad, rhEndPref[0]);
+    const rhLastNote = pickNoteFromPoolByLetter(notePoolRH, rhEndLetter, false) || rhLastTokens[rhLastTokens.length - 1];
+    rhLastTokens[rhLastTokens.length - 1] = `${rhLastNote}${rhLastDur}`;
+    rhBars[lastIdx] = rhLastTokens.join(' ');
+
+    // --- LEFT HAND: stronger harmonic cues on first/last events, depending on policy ---
+    if (includeLH) {
+        // FIRST LH event
+        const lhFirstTokens = lhBars[0].trim().split(/\s+/);
+        const lhFirstDur = extractDurationToken(lhFirstTokens[0]);
+
+        // Build the chord letters per start policy
+        let firstLetters: string[] = [];
+        if (startPolicy.startsWith('LH_root5')) {
+            // dyad: root+fifth
+            firstLetters = [startTriad[0], startTriad[2]];
+        } else if (startPolicy.startsWith('LH_fullTriad')) {
+            // full triad + optional extensions at high grades
+            firstLetters = [...startTriad, ...startExts];
+        } else {
+            // default: root only for a clean anchor
+            firstLetters = [startTriad[0]];
+        }
+
+        lhFirstTokens[0] = buildChordToken(notePoolLH, firstLetters, lhFirstDur, true);
+        lhBars[0] = lhFirstTokens.join(' ');
+
+        // LAST LH event: cadential fullness (at high grades add 7/9 subtly)
+        const lhLastTokens = lhBars[lastIdx].trim().split(/\s+/);
+        const lhLastDur = extractDurationToken(lhLastTokens[lhLastTokens.length - 1]);
+
+        // Prefer a fuller cadence than the start (unless very easy)
+        let lastLetters: string[] = [];
+        if (preset.grade <= 3) {
+            lastLetters = [endTriad[0], endTriad[2]]; // root + fifth
+        } else if (preset.grade <= 6) {
+            lastLetters = [...endTriad]; // full triad
+        } else {
+            lastLetters = [...endTriad, ...endExts]; // triad + 7/9
+        }
+
+        lhLastTokens[lhLastTokens.length - 1] = buildChordToken(notePoolLH, lastLetters, lhLastDur, true);
+        lhBars[lastIdx] = lhLastTokens.join(' ');
+    }
+
 
     const systems: string[] = [];
     for (let i = 0; i < bars; i += BARS_PER_LINE) {
