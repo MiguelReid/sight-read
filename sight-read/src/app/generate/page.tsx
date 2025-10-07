@@ -25,6 +25,8 @@ type Preset = {
     meter: string;
     meterNum: number;
     meterDen: number;
+    strongBeats: number[];
+    secondaryBeats: number[]; 
 };
 
 type KeyDef = { label: string; acc: number }; // acc = number of sharps(+) or flats(-)
@@ -67,23 +69,22 @@ const MINOR_KEYS: KeyDef[] = [
 const KEY_DEFS: KeyDef[] = [...MAJOR_KEYS, ...MINOR_KEYS];
 
 const METER_OPTIONS = [
-    // meter, numerator, denominator, minimum grade to allow, weight (base)
-    { meter: '2/2', num: 2, den: 2, min: 2, weight: 2.2 },
-    { meter: '2/4', num: 2, den: 4, min: 1, weight: 3.5 },
-    { meter: '3/2', num: 3, den: 2, min: 4, weight: 1.4 },
-    { meter: '3/4', num: 3, den: 4, min: 1, weight: 3.2 },
-    { meter: '3/8', num: 3, den: 8, min: 3, weight: 1.6 },
-    { meter: '4/2', num: 4, den: 2, min: 5, weight: 1.0 },
-    { meter: '4/4', num: 4, den: 4, min: 1, weight: 5.0 },
-    { meter: '4/8', num: 4, den: 8, min: 3, weight: 1.3 },
-    { meter: '6/4', num: 6, den: 4, min: 5, weight: 1.1 },
-    { meter: '6/8', num: 6, den: 8, min: 3, weight: 2.4 },
-    { meter: '9/4', num: 9, den: 4, min: 6, weight: 0.9 },
-    { meter: '9/8', num: 9, den: 8, min: 6, weight: 1.2 },
-    { meter: '12/4', num: 12, den: 4, min: 7, weight: 0.7 },
-    { meter: '12/8', num: 12, den: 8, min: 7, weight: 1.0 },
-    { meter: '5/4', num: 5, den: 4, min: 7, weight: 0.9 },
-    { meter: '7/8', num: 7, den: 8, min: 8, weight: 0.8 },
+    { meter: '2/2',  num: 2, den: 2,  min: 2, weight: 2.2, strongBeats: [1], secondaryBeats: [] },
+    { meter: '2/4',  num: 2, den: 4,  min: 1, weight: 3.5, strongBeats: [1], secondaryBeats: [] },
+    { meter: '3/2',  num: 3, den: 2,  min: 4, weight: 1.4, strongBeats: [1], secondaryBeats: [] },
+    { meter: '3/4',  num: 3, den: 4,  min: 1, weight: 3.2, strongBeats: [1], secondaryBeats: [] },
+    { meter: '3/8',  num: 3, den: 8,  min: 3, weight: 1.6, strongBeats: [1], secondaryBeats: [] },
+    { meter: '4/2',  num: 4, den: 2,  min: 5, weight: 1.0, strongBeats: [1], secondaryBeats: [3] },
+    { meter: '4/4',  num: 4, den: 4,  min: 1, weight: 5.0, strongBeats: [1], secondaryBeats: [3] },
+    { meter: '4/8',  num: 4, den: 8,  min: 3, weight: 1.3, strongBeats: [1], secondaryBeats: [3] },
+    { meter: '6/4',  num: 6, den: 4,  min: 5, weight: 1.1, strongBeats: [1], secondaryBeats: [4] },
+    { meter: '6/8',  num: 6, den: 8,  min: 3, weight: 2.4, strongBeats: [1], secondaryBeats: [4] },
+    { meter: '9/4',  num: 9, den: 4,  min: 6, weight: 0.9, strongBeats: [1], secondaryBeats: [4,7] },
+    { meter: '9/8',  num: 9, den: 8,  min: 6, weight: 1.2, strongBeats: [1], secondaryBeats: [4,7] },
+    { meter: '12/4', num: 12, den: 4, min: 7, weight: 0.7, strongBeats: [1], secondaryBeats: [4,7,10] },
+    { meter: '12/8', num: 12, den: 8, min: 7, weight: 1.0, strongBeats: [1], secondaryBeats: [4,7,10] },
+    { meter: '5/4',  num: 5, den: 4,  min: 7, weight: 0.9, strongBeats: [1], secondaryBeats: [3] }, // assume 3+2 or 2+3 -> beat 3 light accent
+    { meter: '7/8',  num: 7, den: 8,  min: 8, weight: 0.8, strongBeats: [1], secondaryBeats: [3,5] }, // common 2+2+3 pattern
 ];
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
@@ -113,12 +114,12 @@ function pickKeyForGrade(grade: number): KeyDef {
     });
 }
 
-function pickMeterForGrade(grade: number): { meter: string; num: number; den: number } {
+function pickMeterForGrade(grade: number): { meter: string; num: number; den: number; strongBeats: number[]; secondaryBeats: number[] } {
     const g = clamp(grade, 1, 8);
     const avail = METER_OPTIONS.filter(m => g >= m.min);
     // Slightly boost weight the further above its min grade we are (keeps variety later)
     const choice = pickWeighted(avail, m => m.weight * (1 + 0.15 * Math.max(0, g - m.min)));
-    return { meter: choice.meter, num: choice.num, den: choice.den };
+    return { meter: choice.meter, num: choice.num, den: choice.den, strongBeats: choice.strongBeats, secondaryBeats: choice.secondaryBeats };
 }
 
 // Grade → tempo range; we’ll randomize inside and adjust for key complexity
@@ -188,7 +189,8 @@ function getPreset(grade: number): Preset {
     const tempo = Math.round(rand(Math.round(tMin * tempoScale), Math.round(tMax * tempoScale)));
 
     // 1) Pick meter first
-    const { meter, num: meterNum, den: meterDen } = pickMeterForGrade(g);
+    const meterOpt = pickMeterForGrade(g);
+    const { meter, num: meterNum, den: meterDen, strongBeats, secondaryBeats } = meterOpt;
 
     // 2) Rhythmic resolution
     const { noteLength, durations } = planDurations(effComplexity);
@@ -228,6 +230,8 @@ function getPreset(grade: number): Preset {
         meter,
         meterNum,
         meterDen,
+        strongBeats: [],
+        secondaryBeats: [],
     };
 }
 
