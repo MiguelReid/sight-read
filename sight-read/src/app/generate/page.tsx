@@ -22,6 +22,9 @@ type Preset = {
     notePoolRH: string[];
     notePoolLH: string[];
     lhStyle: LHStyle;
+    meter: string;
+    meterNum: number;
+    meterDen: number;
 };
 
 type KeyDef = { label: string; acc: number }; // acc = number of sharps(+) or flats(-)
@@ -63,6 +66,26 @@ const MINOR_KEYS: KeyDef[] = [
 ];
 const KEY_DEFS: KeyDef[] = [...MAJOR_KEYS, ...MINOR_KEYS];
 
+const METER_OPTIONS = [
+    // meter, numerator, denominator, minimum grade to allow, weight (base)
+    { meter: '2/2', num: 2, den: 2, min: 2, weight: 2.2 },
+    { meter: '2/4', num: 2, den: 4, min: 1, weight: 3.5 },
+    { meter: '3/2', num: 3, den: 2, min: 4, weight: 1.4 },
+    { meter: '3/4', num: 3, den: 4, min: 1, weight: 3.2 },
+    { meter: '3/8', num: 3, den: 8, min: 3, weight: 1.6 },
+    { meter: '4/2', num: 4, den: 2, min: 5, weight: 1.0 },
+    { meter: '4/4', num: 4, den: 4, min: 1, weight: 5.0 },
+    { meter: '4/8', num: 4, den: 8, min: 3, weight: 1.3 },
+    { meter: '6/4', num: 6, den: 4, min: 5, weight: 1.1 },
+    { meter: '6/8', num: 6, den: 8, min: 3, weight: 2.4 },
+    { meter: '9/4', num: 9, den: 4, min: 6, weight: 0.9 },
+    { meter: '9/8', num: 9, den: 8, min: 6, weight: 1.2 },
+    { meter: '12/4', num: 12, den: 4, min: 7, weight: 0.7 },
+    { meter: '12/8', num: 12, den: 8, min: 7, weight: 1.0 },
+    { meter: '5/4', num: 5, den: 4, min: 7, weight: 0.9 },
+    { meter: '7/8', num: 7, den: 8, min: 8, weight: 0.8 },
+];
+
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 const randInt = (min: number, max: number) => Math.floor(rand(min, max + 1));
@@ -90,6 +113,14 @@ function pickKeyForGrade(grade: number): KeyDef {
     });
 }
 
+function pickMeterForGrade(grade: number): { meter: string; num: number; den: number } {
+    const g = clamp(grade, 1, 8);
+    const avail = METER_OPTIONS.filter(m => g >= m.min);
+    // Slightly boost weight the further above its min grade we are (keeps variety later)
+    const choice = pickWeighted(avail, m => m.weight * (1 + 0.15 * Math.max(0, g - m.min)));
+    return { meter: choice.meter, num: choice.num, den: choice.den };
+}
+
 // Grade → tempo range; we’ll randomize inside and adjust for key complexity
 function tempoRangeForGrade(grade: number): [number, number] {
     switch (clamp(grade, 1, 8)) {
@@ -115,35 +146,29 @@ ABC pitch cheatsheet:
 type DurationPlan = {
     noteLength: '1/8' | '1/16';
     durations: Duration[];
-    unitsPerBar: number;
 };
 
 function planDurations(effComplexity: number): DurationPlan {
-    // If complexity is high, allow sixteenths (use L:1/16). Else stick to L:1/8.
     if (effComplexity >= 0.55) {
-        // L:1/16 → units per bar = 16
-        const sixteenthWeight = 2 + (effComplexity - 0.55) * 8; // 2..~6
-        const eighthWeight = 3 + (effComplexity - 0.55) * 4;    // 3..~5
-        const quarterWeight = 2 + (1 - effComplexity) * 4;      // 2..~4
+        const sixteenthWeight = 2 + (effComplexity - 0.55) * 8;
+        const eighthWeight = 3 + (effComplexity - 0.55) * 4;
+        const quarterWeight = 2 + (1 - effComplexity) * 4;
         return {
             noteLength: '1/16',
-            unitsPerBar: 16,
             durations: [
-                { token: '', units: 1, weight: sixteenthWeight }, // 1/16
-                { token: '2', units: 2, weight: eighthWeight },   // 1/8
-                { token: '4', units: 4, weight: quarterWeight },  // 1/4
+                { token: '', units: 1, weight: sixteenthWeight },
+                { token: '2', units: 2, weight: eighthWeight },
+                { token: '4', units: 4, weight: quarterWeight },
             ],
         };
     } else {
-        // L:1/8 → units per bar = 8
-        const eighthWeight = 5 - effComplexity * 2;  // ~5..4
-        const quarterWeight = 3 + (1 - effComplexity) * 2; // ~5..3
+        const eighthWeight = 5 - effComplexity * 2;
+        const quarterWeight = 3 + (1 - effComplexity) * 2;
         return {
             noteLength: '1/8',
-            unitsPerBar: 8,
             durations: [
-                { token: '', units: 1, weight: eighthWeight },   // 1/8
-                { token: '2', units: 2, weight: quarterWeight }, // 1/4
+                { token: '', units: 1, weight: eighthWeight },
+                { token: '2', units: 2, weight: quarterWeight },
             ],
         };
     }
@@ -151,42 +176,35 @@ function planDurations(effComplexity: number): DurationPlan {
 
 function getPreset(grade: number): Preset {
     const g = clamp(grade, 1, 8);
-    // 1) Pick a key for this grade (any major/minor), weighted by grade.
     const keyDef = pickKeyForGrade(g);
     const key = keyDef.label;
-    const keyHardness = Math.abs(keyDef.acc) / 7; // 0..1
+    const keyHardness = Math.abs(keyDef.acc) / 7;
 
-    // 2) Base musical complexity from grade, then adjust down if key is hard.
-    const baseComplexity = (g - 1) / 7; // 0..1
+    const baseComplexity = (g - 1) / 7;
     const effComplexity = clamp(baseComplexity - 0.35 * keyHardness + rand(-0.05, 0.05), 0, 1);
 
-    // 3) Tempo: pick within the grade band, then reduce slightly for harder keys.
     let [tMin, tMax] = tempoRangeForGrade(g);
-    const tempoScale = 1 - 0.15 * keyHardness; // up to -15% at 7 accidentals
+    const tempoScale = 1 - 0.15 * keyHardness;
     const tempo = Math.round(rand(Math.round(tMin * tempoScale), Math.round(tMax * tempoScale)));
 
-    // 4) Rhythmic plan (note length and durations) based on effective complexity.
-    const { noteLength, unitsPerBar, durations } = planDurations(effComplexity);
+    // 1) Pick meter first
+    const { meter, num: meterNum, den: meterDen } = pickMeterForGrade(g);
 
-    // 5) Pitch ranges for both hands.
-    // Right hand: around and above middle C (lowercase >= middle C)
+    // 2) Rhythmic resolution
+    const { noteLength, durations } = planDurations(effComplexity);
+    const baseDen = noteLength === '1/8' ? 8 : 16;
+
+    // Units per bar = (n/d) / (1/baseDen) = n * baseDen / d
+    const unitsPerBar = meterNum * (baseDen / meterDen);
+
     let notePoolRH: string[] = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
     if (effComplexity >= 0.4) notePoolRH.push("c'", "d'", "e'");
     if (effComplexity >= 0.7) notePoolRH.push("f'", "g'", "a'", "b'");
 
-    // Left hand: below middle C (uppercase and commas)
     let notePoolLH: string[] = ['C,', 'D,', 'E,', 'F,', 'G,', 'A,', 'B,'];
     if (effComplexity >= 0.35) notePoolLH.push('C', 'D', 'E', 'F', 'G', 'A', 'B');
     if (effComplexity >= 0.75) notePoolLH.push('C,,', 'D,,', 'E,,', 'F,,', 'G,,');
 
-    // 6) Left-hand style by grade (bigger differences between grades)
-    // - 1-2: no LH at all
-    // - 3:   one sustained note per bar (drone)
-    // - 4:   two notes per bar (halves)
-    // - 5:   four notes per bar (quarters)
-    // - 6:   eight notes per bar (eighths)
-    // - 7:   simple melodic (no fastest subdivisions)
-    // - 8:   full melodic/random in both hands
     let lhStyle: LHStyle = 'none';
     if (g <= 2) lhStyle = 'none';
     else if (g === 3) lhStyle = 'drone';
@@ -207,6 +225,9 @@ function getPreset(grade: number): Preset {
         notePoolRH,
         notePoolLH,
         lhStyle,
+        meter,
+        meterNum,
+        meterDen,
     };
 }
 
@@ -409,7 +430,7 @@ function pickSpecificChordTone(letters: [string, string, string], which: 'root' 
 
 // Build ABC with two voices (RH treble, LH bass), 4 bars per line, with harmonic start/end enforcement
 function generateAbcForPreset(preset: Preset): string {
-    const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, noteLength, lhStyle } = preset;
+    const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, noteLength, lhStyle, meter } = preset;
 
     let rhBars = makeBars(notePoolRH, durations, unitsPerBar, bars);
     const includeLH = lhStyle !== 'none';
@@ -516,7 +537,7 @@ function generateAbcForPreset(preset: Preset): string {
 
     const header = [
         'X:1',
-        'M:4/4',
+        `M:${meter}`,
         `L:${noteLength}`,
         `K:${key}`,
     ];
@@ -576,32 +597,25 @@ export default function Generate() {
     // Play/Stop controls
     const handlePlay = async () => {
         if (!visualObj || !lastPreset) return;
-
-        // Lazily create AudioContext
         if (!audioCtxRef.current) {
             const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
             audioCtxRef.current = new AC();
         }
-
-        // Create or re-init synth for this tune
         if (!synthRef.current) {
             synthRef.current = new (abcjs as any).synth.CreateSynth();
         } else {
             try { synthRef.current.stop(); } catch { }
         }
 
-        // Match playback tempo to your overlay (no Q: in ABC)
-        const msPerMeasure = Math.round((60000 / lastPreset.tempo) * 4); // 4/4
+        const quarterEquiv = (4 * lastPreset.meterNum) / lastPreset.meterDen;
+        const msPerMeasure = Math.round((60000 / lastPreset.tempo) * quarterEquiv);
 
         await synthRef.current.init({
             visualObj,
             audioContext: audioCtxRef.current,
             millisecondsPerMeasure: msPerMeasure,
-            options: {
-                // pan: [-0.3, 0.3]
-            }
+            options: {}
         });
-
         await synthRef.current.prime();
         await synthRef.current.start();
         setIsPlaying(true);
