@@ -9,7 +9,7 @@ const TOTAL_BARS = BARS_PER_LINE * LINES;
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 type Duration = { token: string; units: number; weight: number };
-type LHStyle = 'none' | 'drone' | 'halves' | 'quarters' | 'eighths' | 'simple-melodic' | 'melodic';
+type LHStyle = 'none' | 'drone' | 'halves' | 'quarters' | 'eighths' | 'simple-melodic';
 
 type Preset = {
     grade: number;
@@ -71,9 +71,9 @@ const KEY_DEFS: KeyDef[] = [...MAJOR_KEYS, ...MINOR_KEYS];
 const METER_OPTIONS = [
     { meter: '2/2',  num: 2, den: 2,  min: 2, weight: 2.2, strongBeats: [1], secondaryBeats: [] },
     { meter: '2/4',  num: 2, den: 4,  min: 1, weight: 3.5, strongBeats: [1], secondaryBeats: [] },
-    { meter: '3/2',  num: 3, den: 2,  min: 4, weight: 1.4, strongBeats: [1], secondaryBeats: [] },
-    { meter: '3/4',  num: 3, den: 4,  min: 1, weight: 3.2, strongBeats: [1], secondaryBeats: [] },
-    { meter: '3/8',  num: 3, den: 8,  min: 3, weight: 1.6, strongBeats: [1], secondaryBeats: [] },
+    { meter: '3/2',  num: 3, den: 2,  min: 4, weight: 1.4, strongBeats: [1], secondaryBeats: [3] },
+    { meter: '3/4',  num: 3, den: 4,  min: 1, weight: 3.2, strongBeats: [1], secondaryBeats: [3] },
+    { meter: '3/8',  num: 3, den: 8,  min: 3, weight: 1.6, strongBeats: [1], secondaryBeats: [3] },
     { meter: '4/2',  num: 4, den: 2,  min: 5, weight: 1.0, strongBeats: [1], secondaryBeats: [3] },
     { meter: '4/4',  num: 4, den: 4,  min: 1, weight: 5.0, strongBeats: [1], secondaryBeats: [3] },
     { meter: '4/8',  num: 4, den: 8,  min: 3, weight: 1.3, strongBeats: [1], secondaryBeats: [3] },
@@ -83,7 +83,8 @@ const METER_OPTIONS = [
     { meter: '9/8',  num: 9, den: 8,  min: 6, weight: 1.2, strongBeats: [1], secondaryBeats: [4,7] },
     { meter: '12/4', num: 12, den: 4, min: 7, weight: 0.7, strongBeats: [1], secondaryBeats: [4,7,10] },
     { meter: '12/8', num: 12, den: 8, min: 7, weight: 1.0, strongBeats: [1], secondaryBeats: [4,7,10] },
-    { meter: '5/4',  num: 5, den: 4,  min: 7, weight: 0.9, strongBeats: [1], secondaryBeats: [3] }, // assume 3+2 or 2+3 -> beat 3 light accent
+    // Either 3+2 or 2+3
+    { meter: '5/4',  num: 5, den: 4,  min: 7, weight: 0.9, strongBeats: [1], secondaryBeats: [4] },
     { meter: '7/8',  num: 7, den: 8,  min: 8, weight: 0.8, strongBeats: [1], secondaryBeats: [3,5] }, // common 2+2+3 pattern
 ];
 
@@ -91,7 +92,7 @@ const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 const randInt = (min: number, max: number) => Math.floor(rand(min, max + 1));
 
-function pickWeighted<T>(items: T[], getWeight: (t: T) => number): T {
+function pickWeightedRandom<T>(items: T[], getWeight: (t: T) => number): T {
     const weights = items.map(getWeight);
     const total = weights.reduce((s, w) => s + w, 0);
     let r = Math.random() * total;
@@ -102,10 +103,10 @@ function pickWeighted<T>(items: T[], getWeight: (t: T) => number): T {
     return items[items.length - 1];
 }
 
-// Prefer simpler keys at low grades; allow all keys; bias toward complex keys at high grades.
+// Prefer simpler keys at low grades + bias toward complex keys at high grades.
 function pickKeyForGrade(grade: number): KeyDef {
     const g01 = (clamp(grade, 1, 8) - 1) / 7; // 0..1
-    return pickWeighted(KEY_DEFS, (k) => {
+    return pickWeightedRandom(KEY_DEFS, (k) => {
         const accAbs = Math.abs(k.acc) / 7;           // 0..1
         const soft = 1 / (1 + accAbs * 7);            // favors 0 accidentals
         const hard = 0.4 + accAbs;                    // favors many accidentals
@@ -118,7 +119,7 @@ function pickMeterForGrade(grade: number): { meter: string; num: number; den: nu
     const g = clamp(grade, 1, 8);
     const avail = METER_OPTIONS.filter(m => g >= m.min);
     // Slightly boost weight the further above its min grade we are (keeps variety later)
-    const choice = pickWeighted(avail, m => m.weight * (1 + 0.15 * Math.max(0, g - m.min)));
+    const choice = pickWeightedRandom(avail, m => m.weight * (1 + 0.15 * Math.max(0, g - m.min)));
     return { meter: choice.meter, num: choice.num, den: choice.den, strongBeats: choice.strongBeats, secondaryBeats: choice.secondaryBeats };
 }
 
@@ -126,13 +127,13 @@ function pickMeterForGrade(grade: number): { meter: string; num: number; den: nu
 function tempoRangeForGrade(grade: number): [number, number] {
     switch (clamp(grade, 1, 8)) {
         case 1: return [60, 72];
-        case 2: return [66, 84];
-        case 3: return [72, 96];
-        case 4: return [80, 110];
-        case 5: return [88, 120];
-        case 6: return [96, 132];
-        case 7: return [104, 144];
-        case 8: return [112, 160];
+        case 2: return [60, 84];
+        case 3: return [60, 96];
+        case 4: return [70, 110];
+        case 5: return [70, 120];
+        case 6: return [80, 132];
+        case 7: return [80, 144];
+        case 8: return [80, 160];
         default: return [72, 100];
     }
 }
@@ -150,29 +151,36 @@ type DurationPlan = {
 };
 
 function planDurations(effComplexity: number): DurationPlan {
-    if (effComplexity >= 0.55) {
-        const sixteenthWeight = 2 + (effComplexity - 0.55) * 8;
-        const eighthWeight = 3 + (effComplexity - 0.55) * 4;
-        const quarterWeight = 2 + (1 - effComplexity) * 4;
-        return {
-            noteLength: '1/16',
-            durations: [
-                { token: '', units: 1, weight: sixteenthWeight },
-                { token: '2', units: 2, weight: eighthWeight },
-                { token: '4', units: 4, weight: quarterWeight },
-            ],
-        };
-    } else {
-        const eighthWeight = 5 - effComplexity * 2;
-        const quarterWeight = 3 + (1 - effComplexity) * 2;
+    // Smooth, musical distributions that never let the fastest value dominate.
+    // Below the threshold, keep L:1/8 and gradually balance quarters in.
+    if (effComplexity < 0.55) {
+        const t = Math.max(0, Math.min(1, effComplexity / 0.55)); // 0..1
+        // At t=0 → 70% eighths / 30% quarters; at t=1 → 55% / 45%.
+        const eighthW = 0.60 - 0.15 * t;
+        const quarterW = 0.40 + 0.15 * t;
         return {
             noteLength: '1/8',
             durations: [
-                { token: '', units: 1, weight: eighthWeight },
-                { token: '2', units: 2, weight: quarterWeight },
+                { token: '', units: 1, weight: eighthW },
+                { token: '2', units: 2, weight: quarterW },
             ],
         };
     }
+
+    // At higher complexity, use L:1/16 with balanced mix.
+    // Map eff 0.55..1.0 to t 0..1, bias so sixteenths rise but cap ~45%.
+    const t = Math.max(0, Math.min(1, (effComplexity - 0.55) / 0.45));
+    const sixteenthW = 0.25 + 0.20 * t; // 25% → 45%
+    const eighthW = 0.25 - 0.10 * t;    // 50% → 40%
+    const quarterW = 0.50 - 0.10 * t;   // 25% → 15%
+    return {
+        noteLength: '1/16',
+        durations: [
+            { token: '', units: 1, weight: sixteenthW },
+            { token: '2', units: 2, weight: eighthW },
+            { token: '4', units: 4, weight: quarterW },
+        ],
+    };
 }
 
 function getPreset(grade: number): Preset {
@@ -212,9 +220,9 @@ function getPreset(grade: number): Preset {
     else if (g === 3) lhStyle = 'drone';
     else if (g === 4) lhStyle = 'halves';
     else if (g === 5) lhStyle = 'quarters';
-    else if (g === 6) lhStyle = 'eighths';
-    else if (g === 7) lhStyle = 'simple-melodic';
-    else lhStyle = 'melodic';
+    else if (g === 6) lhStyle = 'quarters';
+    else if (g === 7) lhStyle = 'eighths';
+    else lhStyle = 'simple-melodic';
 
     return {
         grade: g,
@@ -230,32 +238,87 @@ function getPreset(grade: number): Preset {
         meter,
         meterNum,
         meterDen,
-        strongBeats: [],
-        secondaryBeats: [],
+        strongBeats: strongBeats,
+        secondaryBeats: secondaryBeats,
     };
 }
 
-function weightedPick<T extends { weight: number }>(items: T[]): T {
-    const total = items.reduce((s, i) => s + i.weight, 0);
-    let r = Math.random() * total;
-    for (const it of items) {
-        r -= it.weight;
-        if (r <= 0) return it;
+function noteAndDur(token: string): { note: string; dur: string } {
+    const m = token.match(/^(\[[^\]]+\]|z|[A-Ga-g][,']*)([0-9/]*)$/);
+    if (!m) return { note: token, dur: '' };
+    return { note: m[1], dur: m[2] || '' };
+}
+
+function rebuild(note: string, dur: string) {
+    return `${note}${dur}`;
+}
+
+function buildPhraseEnds(totalBars: number, grade: number): number[] {
+    const lengthsPoolLow = [[2],[3],[4]];
+    const lengthsPoolHigh = [[2],[3],[4],[5]];
+    const maxLen = grade < 5 ? 4 : 5;
+    const ends: number[] = [];
+    let used = 0;
+    while (used < totalBars) {
+        const remain = totalBars - used;
+        const pool = grade < 5 ? lengthsPoolLow : lengthsPoolHigh;
+        let cand = pool[Math.floor(Math.random()*pool.length)][0];
+        if (cand > maxLen) cand = maxLen;
+        if (cand > remain) cand = remain;
+        used += cand;
+        ends.push(used - 1); // store bar index of phrase end
     }
-    return items[items.length - 1];
+    return ends;
+}
+
+// Replace a token in a bar at given token index
+function replaceTokenInBar(bar: string, idx: number, newTok: string): string {
+    const toks = bar.trim().split(/\s+/);
+    toks[idx] = newTok;
+    return toks.join(' ');
+}
+
+// Find first token beginning exactly at a strong beat (beat numbers 1-based)
+function findTokenIndexAtBeat(bar: string, beatNumber: number, unitsPerBar: number, meterNum: number, beatUnit: number): number | null {
+    const toks = bar.trim().split(/\s+/);
+    let posUnits = 0;
+    for (let i = 0; i < toks.length; i++) {
+        if (posUnits === (beatNumber - 1) * beatUnit) return i;
+        // advance
+        const { dur } = noteAndDur(toks[i]);
+        // duration units: if empty token = 1 unit
+        const units = dur ? parseInt(dur, 10) : 1;
+        posUnits += units;
+    }
+    return null;
 }
 
 function makeBars(notePool: string[], durations: Duration[], unitsPerBar: number, bars: number): string[] {
     const out: string[] = [];
+    const minUnits = Math.min(...durations.map(d => d.units));
+    const maxSmallRun = 3; // prevent overly long runs of the fastest value
     for (let b = 0; b < bars; b++) {
         let used = 0;
+        let runSmall = 0;
+        let hasNonSmall = false;
         const tokens: string[] = [];
         while (used < unitsPerBar) {
-            const candidates = durations.filter(d => d.units <= unitsPerBar - used);
-            const d = weightedPick(candidates.length ? candidates : durations);
+            const remaining = unitsPerBar - used;
+            const candidates = durations.filter(d => d.units <= remaining);
+            const pickList = candidates.length ? candidates : durations;
+            const d = pickWeightedRandom(pickList, (x) => {
+                let w = x.weight;
+                // Penalize continuing a long run of the fastest unit
+                if (x.units === minUnits && runSmall >= maxSmallRun) w *= 0.2;
+                // Encourage placing at least one longer note per bar if we're running out of room
+                const isNonSmall = x.units > minUnits;
+                if (!hasNonSmall && remaining <= minUnits * 2 && isNonSmall && x.units <= remaining) w *= 3.0;
+                return Math.max(w, 0.0001);
+            });
             const note = notePool[Math.floor(Math.random() * notePool.length)];
             tokens.push(`${note}${d.token}`);
             used += d.units;
+            if (d.units === minUnits) runSmall += 1; else { runSmall = 0; hasNonSmall = true; }
         }
         out.push(tokens.join(' '));
     }
@@ -278,6 +341,91 @@ function diatonicLettersFrom(tonicLetter: string): string[] {
     const seq: string[] = [];
     for (let i = 0; i < 7; i++) seq.push(LETTERS[(idx + i) % 7]);
     return seq;
+}
+
+function enforcePhrasesAndAccents(preset: Preset, rhBars: string[], lhBars: string[]): { rhBars: string[]; lhBars: string[] } {
+    const { key, grade, strongBeats, secondaryBeats, unitsPerBar, meterNum, notePoolRH, notePoolLH } = preset;
+    const { tonicLetter } = parseKeyLabel(key);
+    const tonicTriad = triadForDegree(1, tonicLetter); // I chord letters
+    const beatUnit = unitsPerBar / meterNum;
+
+    const phraseEnds = buildPhraseEnds(rhBars.length, grade);
+    let phraseStart = 0;
+
+    phraseEnds.forEach((endBarIdx, phraseIdx) => {
+        const startBarIdx = phraseStart;
+        const isFinalPhrase = endBarIdx === rhBars.length - 1;
+
+        // --- Phrase start adjustments (RH mainly) ---
+        // Choose a strong beat (prefer primary, else first available)
+        const startBar = rhBars[startBarIdx];
+        const targetBeat = strongBeats[0] || 1;
+        const tokIdx = findTokenIndexAtBeat(startBar, targetBeat, unitsPerBar, meterNum, beatUnit);
+        if (tokIdx !== null) {
+            const toks = startBar.trim().split(/\s+/);
+            const orig = toks[tokIdx];
+            if (!orig.startsWith('[') && !orig.startsWith('z')) {
+                const { dur } = noteAndDur(orig);
+                // pick a chord tone (root or third mostly)
+                const pref: ('root'|'third'|'fifth')[] = grade < 4 ? ['root','third','fifth'] : ['root','third','fifth'];
+                const choiceLetter = pref[Math.floor(Math.random()*pref.length)] === 'third'
+                    ? tonicTriad[1]
+                    : pref[0] === 'root'
+                        ? tonicTriad[0]
+                        : tonicTriad[2];
+                const repl = pickNoteFromPoolByLetter(notePoolRH, choiceLetter, false) || orig;
+                toks[tokIdx] = rebuild(repl, dur);
+                rhBars[startBarIdx] = toks.join(' ');
+            }
+        }
+
+        // --- Phrase end adjustments (resolve) ---
+        const endBar = rhBars[endBarIdx];
+        const endTokens = endBar.trim().split(/\s+/);
+        // last sounding token
+        for (let i = endTokens.length - 1; i >= 0; i--) {
+            const t = endTokens[i];
+            if (t.startsWith('z')) continue;
+            const { dur } = noteAndDur(t);
+            if (t.startsWith('[')) {
+                // chord: leave (already harmonic)
+                break;
+            } else {
+                // Replace with root / chord tone (root most likely; allow third if not final)
+                const weights = isFinalPhrase ? ['root','root','third','fifth'] : ['root','third','fifth'];
+                const pick = weights[Math.floor(Math.random()*weights.length)];
+                const letter = pick === 'root' ? tonicTriad[0] : pick === 'third' ? tonicTriad[1] : tonicTriad[2];
+                const repl = pickNoteFromPoolByLetter(notePoolRH, letter, false) || t;
+                endTokens[i] = rebuild(repl, dur);
+                rhBars[endBarIdx] = endTokens.join(' ');
+                break;
+            }
+        }
+
+        // LH cadence strengthening (if present)
+        if (lhBars.length) {
+            const lhEndTokens = lhBars[endBarIdx].trim().split(/\s+/);
+            const lastIdx = lhEndTokens.length - 1;
+            if (lastIdx >= 0) {
+                const lastTok = lhEndTokens[lastIdx];
+                const { dur } = noteAndDur(lastTok);
+                // build a chord on final phrase end or simple dyad earlier
+                const letters: string[] = [];
+                if (isFinalPhrase) {
+                    letters.push(...tonicTriad);
+                    if (grade >= 6) letters.push(seventhForDegree(1, tonicLetter));
+                } else {
+                    letters.push(tonicTriad[0], tonicTriad[2]);
+                }
+                lhEndTokens[lastIdx] = buildChordToken(notePoolLH, letters, dur, true);
+                lhBars[endBarIdx] = lhEndTokens.join(' ');
+            }
+        }
+
+        phraseStart = endBarIdx + 1;
+    });
+
+    return { rhBars, lhBars };
 }
 
 // degree: 1..7 (I..VII). Returns triad letters [root, third, fifth]
@@ -392,13 +540,26 @@ function makeLeftHandBars(
             : durations;
 
         let used = 0;
+        let runSmall = 0;
+        let hasNonSmall = false;
+        const minUnits = Math.min(...durList.map(d => d.units));
+        const maxSmallRun = 3;
         const tokens: string[] = [];
         while (used < unitsPerBar) {
-            const candidates = durList.filter(d => d.units <= unitsPerBar - used);
-            const d = weightedPick(candidates.length ? candidates : durList);
+            const remaining = unitsPerBar - used;
+            const candidates = durList.filter(d => d.units <= remaining);
+            const pickList = candidates.length ? candidates : durList;
+            const d = pickWeightedRandom(pickList, (x) => {
+                let w = x.weight;
+                if (x.units === minUnits && runSmall >= maxSmallRun) w *= 0.2;
+                const isNonSmall = x.units > minUnits;
+                if (!hasNonSmall && remaining <= minUnits * 2 && isNonSmall && x.units <= remaining) w *= 3.0;
+                return Math.max(w, 0.0001);
+            });
             const n = notePool[Math.floor(Math.random() * notePool.length)];
             tokens.push(`${n}${d.token}`);
             used += d.units;
+            if (d.units === minUnits) runSmall += 1; else { runSmall = 0; hasNonSmall = true; }
         }
         out.push(tokens.join(' '));
     }
@@ -459,6 +620,8 @@ function generateAbcForPreset(preset: Preset): string {
         startExts.push(ninthForDegree(startDegree, tonicLetter));
         endExts.push(ninthForDegree(endDegree, tonicLetter));
     }
+
+    ({ rhBars, lhBars } = enforcePhrasesAndAccents(preset, rhBars, lhBars));
 
     // --- Pick a start policy (decides LH/RH roles on the very first event) ---
     const startPolicy = pickStartPolicy(preset.grade, lhStyle);
