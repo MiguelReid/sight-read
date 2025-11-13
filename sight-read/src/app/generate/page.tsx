@@ -79,9 +79,7 @@ const METER_OPTIONS = [
     { meter: '4/8',  num: 4, den: 8,  min: 3, weight: 1.3, strongBeats: [1], secondaryBeats: [3] },
     { meter: '6/4',  num: 6, den: 4,  min: 5, weight: 1.1, strongBeats: [1], secondaryBeats: [4] },
     { meter: '6/8',  num: 6, den: 8,  min: 3, weight: 2.4, strongBeats: [1], secondaryBeats: [4] },
-    { meter: '9/4',  num: 9, den: 4,  min: 6, weight: 0.9, strongBeats: [1], secondaryBeats: [4,7] },
     { meter: '9/8',  num: 9, den: 8,  min: 6, weight: 1.2, strongBeats: [1], secondaryBeats: [4,7] },
-    { meter: '12/4', num: 12, den: 4, min: 7, weight: 0.7, strongBeats: [1], secondaryBeats: [4,7,10] },
     { meter: '12/8', num: 12, den: 8, min: 7, weight: 1.0, strongBeats: [1], secondaryBeats: [4,7,10] },
     // Either 3+2 or 2+3
     { meter: '5/4',  num: 5, den: 4,  min: 7, weight: 0.9, strongBeats: [1], secondaryBeats: [4] },
@@ -90,7 +88,8 @@ const METER_OPTIONS = [
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
-const randInt = (min: number, max: number) => Math.floor(rand(min, max + 1));
+// Removed unused randInt helper to keep things lean.
+// const randInt = (min: number, max: number) => Math.floor(rand(min, max + 1));
 
 function pickWeightedRandom<T>(items: T[], getWeight: (t: T) => number): T {
     const weights = items.map(getWeight);
@@ -151,8 +150,6 @@ type DurationPlan = {
 };
 
 function planDurations(effComplexity: number): DurationPlan {
-    // Smooth, musical distributions that never let the fastest value dominate.
-    // Below the threshold, keep L:1/8 and gradually balance quarters in.
     if (effComplexity < 0.55) {
         const t = Math.max(0, Math.min(1, effComplexity / 0.55)); // 0..1
         // At t=0 → 70% eighths / 30% quarters; at t=1 → 55% / 45%.
@@ -170,9 +167,10 @@ function planDurations(effComplexity: number): DurationPlan {
     // At higher complexity, use L:1/16 with balanced mix.
     // Map eff 0.55..1.0 to t 0..1, bias so sixteenths rise but cap ~45%.
     const t = Math.max(0, Math.min(1, (effComplexity - 0.55) / 0.45));
-    const sixteenthW = 0.25 + 0.20 * t; // 25% → 45%
-    const eighthW = 0.25 - 0.10 * t;    // 50% → 40%
-    const quarterW = 0.50 - 0.10 * t;   // 25% → 15%
+    // Reduce eighth note dominance at higher grades; keep quarters present.
+    const sixteenthW = 0.10; // 35% → 55%
+    const eighthW = 0.50 - 0.10 * t;    // 45% → 25%
+    const quarterW = 0.40; + 0.10 * t;              // Steady 40%
     return {
         noteLength: '1/16',
         durations: [
@@ -192,7 +190,7 @@ function getPreset(grade: number): Preset {
     const baseComplexity = (g - 1) / 7;
     const effComplexity = clamp(baseComplexity - 0.35 * keyHardness + rand(-0.05, 0.05), 0, 1);
 
-    let [tMin, tMax] = tempoRangeForGrade(g);
+    const [tMin, tMax] = tempoRangeForGrade(g);
     const tempoScale = 1 - 0.15 * keyHardness;
     const tempo = Math.round(rand(Math.round(tMin * tempoScale), Math.round(tMax * tempoScale)));
 
@@ -207,13 +205,16 @@ function getPreset(grade: number): Preset {
     // Units per bar = (n/d) / (1/baseDen) = n * baseDen / d
     const unitsPerBar = meterNum * (baseDen / meterDen);
 
-    let notePoolRH: string[] = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
-    if (effComplexity >= 0.4) notePoolRH.push("c'", "d'", "e'");
-    if (effComplexity >= 0.7) notePoolRH.push("f'", "g'", "a'", "b'");
+    // Simpler + fewer ledger-line extremes: only lightly expand upward/downward.
+    // RH: stop expansion at e' (avoid piling on f' g' a' b').
+    const notePoolRH: string[] = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
+    if (effComplexity >= 0.4) notePoolRH.push("c'", "d'");
+    if (effComplexity >= 0.55) notePoolRH.push("e'"); // cap highest at e'
 
-    let notePoolLH: string[] = ['C,', 'D,', 'E,', 'F,', 'G,', 'A,', 'B,'];
+    // LH: keep one octave below (comma) + natural octave. Drop double-commas entirely.
+    const notePoolLH: string[] = ['C,', 'D,', 'E,', 'F,', 'G,', 'A,', 'B,'];
     if (effComplexity >= 0.35) notePoolLH.push('C', 'D', 'E', 'F', 'G', 'A', 'B');
-    if (effComplexity >= 0.75) notePoolLH.push('C,,', 'D,,', 'E,,', 'F,,', 'G,,');
+    // Removed ultra-low expansion (C,, etc.) to avoid excessive ledger lines.
 
     let lhStyle: LHStyle = 'none';
     if (g <= 2) lhStyle = 'none';
@@ -480,19 +481,6 @@ function buildChordToken(
     return `[${inside}]${durationToken}`;
 }
 
-function replaceBarEdgeWithChordOrTone(
-    bar: string,
-    notePool: string[],
-    letters: string[],
-    preferLower: boolean,
-    asChord: boolean
-): string {
-    const tokens = bar.trim().split(/\s+/);
-    if (!tokens.length) return bar;
-    // pick first token for start, or last token for end by caller
-    return bar; // caller handles
-}
-
 function makeLeftHandBars(
     style: LHStyle,
     notePool: string[],
@@ -516,19 +504,14 @@ function makeLeftHandBars(
         if (style === 'halves' || style === 'quarters' || style === 'eighths') {
             const divisions = style === 'halves' ? 2 : style === 'quarters' ? 4 : 8;
             const segUnits = Math.max(1, Math.floor(unitsPerBar / divisions));
-            const segToken = tokenFromUnits(segUnits);
             const tokens: string[] = [];
             let used = 0;
             while (used < unitsPerBar) {
-                // Vary notes slightly within the bar
                 const n = notePool[Math.floor(Math.random() * notePool.length)];
-                tokens.push(`${n}${segToken}`);
-                used += segUnits;
-                if (used + segUnits > unitsPerBar && used < unitsPerBar) {
-                    // pad remainder with a final note
-                    tokens.push(`${n}${tokenFromUnits(unitsPerBar - used)}`);
-                    break;
-                }
+                const remaining = unitsPerBar - used;
+                const len = Math.min(segUnits, remaining);
+                tokens.push(`${n}${tokenFromUnits(len)}`);
+                used += len;
             }
             out.push(tokens.join(' '));
             continue;
@@ -566,24 +549,7 @@ function makeLeftHandBars(
     return out;
 }
 
-type StartPolicy =
-    | 'LH_root__RH_third'      // solid tonal start, melody defines mode
-    | 'LH_root5__RH_root'      // strong anchor, very clear key
-    | 'LH_fullTriad__RH_third' // denser intro (harder grades)
-    | 'LH_root__RH_root';      // ultra-simple (very easy)
-
-function pickStartPolicy(grade: number, lhStyle: LHStyle): StartPolicy {
-    // Bias by difficulty and whether LH exists
-    if (lhStyle === 'none') return grade <= 3 ? 'LH_root__RH_root' : 'LH_root__RH_third';
-    if (grade <= 2) return 'LH_root__RH_root';
-    if (grade <= 4) return Math.random() < 0.6 ? 'LH_root5__RH_root' : 'LH_root__RH_third';
-    if (grade <= 6) return Math.random() < 0.6 ? 'LH_root5__RH_root' : 'LH_root__RH_third';
-    // advanced: sometimes full triad
-    const r = Math.random();
-    if (r < 0.45) return 'LH_root5__RH_root';
-    if (r < 0.75) return 'LH_root__RH_third';
-    return 'LH_fullTriad__RH_third';
-}
+// Removed start policy to simplify starting tone handling.
 
 function pickSpecificChordTone(letters: [string, string, string], which: 'root' | 'third' | 'fifth' | 'any'): string {
     if (which === 'any') return letters[Math.floor(Math.random() * letters.length)];
@@ -614,31 +580,14 @@ function generateAbcForPreset(preset: Preset): string {
 
     const add7 = preset.grade >= 6;
     const add9 = preset.grade >= 8;
-    const startExts: string[] = add7 ? [seventhForDegree(startDegree, tonicLetter)] : [];
     const endExts: string[] = add7 ? [seventhForDegree(endDegree, tonicLetter)] : [];
     if (add9) {
-        startExts.push(ninthForDegree(startDegree, tonicLetter));
         endExts.push(ninthForDegree(endDegree, tonicLetter));
     }
 
     ({ rhBars, lhBars } = enforcePhrasesAndAccents(preset, rhBars, lhBars));
 
-    // --- Pick a start policy (decides LH/RH roles on the very first event) ---
-    const startPolicy = pickStartPolicy(preset.grade, lhStyle);
-
-    // --- RIGHT HAND: set first and last melody notes to chord tones ---
-    const rhFirstTokens = rhBars[0].trim().split(/\s+/);
-    const rhFirstDur = extractDurationToken(rhFirstTokens[0]);
-
-    // Choose RH starting chord tone by policy
-    let rhStartChoice: 'root' | 'third' | 'fifth' | 'any' = 'any';
-    if (startPolicy.endsWith('RH_third')) rhStartChoice = 'third';
-    else if (startPolicy.endsWith('RH_root')) rhStartChoice = 'root';
-
-    const rhStartLetter = pickSpecificChordTone(startTriad, rhStartChoice);
-    const rhFirstNote = pickNoteFromPoolByLetter(notePoolRH, rhStartLetter, false) || rhFirstTokens[0];
-    rhFirstTokens[0] = `${rhFirstNote}${rhFirstDur}`;
-    rhBars[0] = rhFirstTokens.join(' ');
+    // --- RIGHT HAND: ensure cadential last note is a chord tone ---
 
     // RH ending tone (cadential feel): prefer root or third; allow fifth occasionally
     const lastIdx = bars - 1;
@@ -650,29 +599,8 @@ function generateAbcForPreset(preset: Preset): string {
     rhLastTokens[rhLastTokens.length - 1] = `${rhLastNote}${rhLastDur}`;
     rhBars[lastIdx] = rhLastTokens.join(' ');
 
-    // --- LEFT HAND: stronger harmonic cues on first/last events, depending on policy ---
+    // --- LEFT HAND: cadential last event (at high grades add 7/9 subtly)
     if (includeLH) {
-        // FIRST LH event
-        const lhFirstTokens = lhBars[0].trim().split(/\s+/);
-        const lhFirstDur = extractDurationToken(lhFirstTokens[0]);
-
-        // Build the chord letters per start policy
-        let firstLetters: string[] = [];
-        if (startPolicy.startsWith('LH_root5')) {
-            // dyad: root+fifth
-            firstLetters = [startTriad[0], startTriad[2]];
-        } else if (startPolicy.startsWith('LH_fullTriad')) {
-            // full triad + optional extensions at high grades
-            firstLetters = [...startTriad, ...startExts];
-        } else {
-            // default: root only for a clean anchor
-            firstLetters = [startTriad[0]];
-        }
-
-        lhFirstTokens[0] = buildChordToken(notePoolLH, firstLetters, lhFirstDur, true);
-        lhBars[0] = lhFirstTokens.join(' ');
-
-        // LAST LH event: cadential fullness (at high grades add 7/9 subtly)
         const lhLastTokens = lhBars[lastIdx].trim().split(/\s+/);
         const lhLastDur = extractDurationToken(lhLastTokens[lhLastTokens.length - 1]);
 
@@ -725,11 +653,12 @@ export default function Generate() {
     const [grade, setGrade] = useState<number>(1);
     const [abc, setAbc] = useState<string>(''); // keep empty during SSR
     const [lastPreset, setLastPreset] = useState<Preset | null>(null);
-    const [visualObj, setVisualObj] = useState<any | null>(null);
+    const [visualObj, setVisualObj] = useState<unknown | null>(null);
 
     // WebAudio synth refs
     const audioCtxRef = useRef<AudioContext | null>(null);
-    const synthRef = useRef<any | null>(null);
+    interface SynthLike { stop: () => void; init: (opts: any) => Promise<void>; prime: () => Promise<void>; start: () => Promise<void>; }
+    const synthRef = useRef<SynthLike | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
 
     useEffect(() => {
@@ -758,7 +687,6 @@ export default function Generate() {
     // Initial client-only generation
     useEffect(() => {
         handleGenerate();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Play/Stop controls
@@ -769,7 +697,7 @@ export default function Generate() {
             audioCtxRef.current = new AC();
         }
         if (!synthRef.current) {
-            synthRef.current = new (abcjs as any).synth.CreateSynth();
+            synthRef.current = new (abcjs as any).synth.CreateSynth() as SynthLike;
         } else {
             try { synthRef.current.stop(); } catch { }
         }
