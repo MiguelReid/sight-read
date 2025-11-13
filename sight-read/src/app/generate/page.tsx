@@ -254,23 +254,6 @@ function rebuild(note: string, dur: string) {
     return `${note}${dur}`;
 }
 
-function buildPhraseEnds(totalBars: number, grade: number): number[] {
-    const lengthsPoolLow = [[2],[3],[4]];
-    const lengthsPoolHigh = [[2],[3],[4],[5]];
-    const maxLen = grade < 5 ? 4 : 5;
-    const ends: number[] = [];
-    let used = 0;
-    while (used < totalBars) {
-        const remain = totalBars - used;
-        const pool = grade < 5 ? lengthsPoolLow : lengthsPoolHigh;
-        let cand = pool[Math.floor(Math.random()*pool.length)][0];
-        if (cand > maxLen) cand = maxLen;
-        if (cand > remain) cand = remain;
-        used += cand;
-        ends.push(used - 1); // store bar index of phrase end
-    }
-    return ends;
-}
 
 // Replace a token in a bar at given token index
 function replaceTokenInBar(bar: string, idx: number, newTok: string): string {
@@ -344,90 +327,6 @@ function diatonicLettersFrom(tonicLetter: string): string[] {
     return seq;
 }
 
-function enforcePhrasesAndAccents(preset: Preset, rhBars: string[], lhBars: string[]): { rhBars: string[]; lhBars: string[] } {
-    const { key, grade, strongBeats, secondaryBeats, unitsPerBar, meterNum, notePoolRH, notePoolLH } = preset;
-    const { tonicLetter } = parseKeyLabel(key);
-    const tonicTriad = triadForDegree(1, tonicLetter); // I chord letters
-    const beatUnit = unitsPerBar / meterNum;
-
-    const phraseEnds = buildPhraseEnds(rhBars.length, grade);
-    let phraseStart = 0;
-
-    phraseEnds.forEach((endBarIdx, phraseIdx) => {
-        const startBarIdx = phraseStart;
-        const isFinalPhrase = endBarIdx === rhBars.length - 1;
-
-        // --- Phrase start adjustments (RH mainly) ---
-        // Choose a strong beat (prefer primary, else first available)
-        const startBar = rhBars[startBarIdx];
-        const targetBeat = strongBeats[0] || 1;
-        const tokIdx = findTokenIndexAtBeat(startBar, targetBeat, unitsPerBar, meterNum, beatUnit);
-        if (tokIdx !== null) {
-            const toks = startBar.trim().split(/\s+/);
-            const orig = toks[tokIdx];
-            if (!orig.startsWith('[') && !orig.startsWith('z')) {
-                const { dur } = noteAndDur(orig);
-                // pick a chord tone (root or third mostly)
-                const pref: ('root'|'third'|'fifth')[] = grade < 4 ? ['root','third','fifth'] : ['root','third','fifth'];
-                const choiceLetter = pref[Math.floor(Math.random()*pref.length)] === 'third'
-                    ? tonicTriad[1]
-                    : pref[0] === 'root'
-                        ? tonicTriad[0]
-                        : tonicTriad[2];
-                const repl = pickNoteFromPoolByLetter(notePoolRH, choiceLetter, false) || orig;
-                toks[tokIdx] = rebuild(repl, dur);
-                rhBars[startBarIdx] = toks.join(' ');
-            }
-        }
-
-        // --- Phrase end adjustments (resolve) ---
-        const endBar = rhBars[endBarIdx];
-        const endTokens = endBar.trim().split(/\s+/);
-        // last sounding token
-        for (let i = endTokens.length - 1; i >= 0; i--) {
-            const t = endTokens[i];
-            if (t.startsWith('z')) continue;
-            const { dur } = noteAndDur(t);
-            if (t.startsWith('[')) {
-                // chord: leave (already harmonic)
-                break;
-            } else {
-                // Replace with root / chord tone (root most likely; allow third if not final)
-                const weights = isFinalPhrase ? ['root','root','third','fifth'] : ['root','third','fifth'];
-                const pick = weights[Math.floor(Math.random()*weights.length)];
-                const letter = pick === 'root' ? tonicTriad[0] : pick === 'third' ? tonicTriad[1] : tonicTriad[2];
-                const repl = pickNoteFromPoolByLetter(notePoolRH, letter, false) || t;
-                endTokens[i] = rebuild(repl, dur);
-                rhBars[endBarIdx] = endTokens.join(' ');
-                break;
-            }
-        }
-
-        // LH cadence strengthening (if present)
-        if (lhBars.length) {
-            const lhEndTokens = lhBars[endBarIdx].trim().split(/\s+/);
-            const lastIdx = lhEndTokens.length - 1;
-            if (lastIdx >= 0) {
-                const lastTok = lhEndTokens[lastIdx];
-                const { dur } = noteAndDur(lastTok);
-                // build a chord on final phrase end or simple dyad earlier
-                const letters: string[] = [];
-                if (isFinalPhrase) {
-                    letters.push(...tonicTriad);
-                    if (grade >= 6) letters.push(seventhForDegree(1, tonicLetter));
-                } else {
-                    letters.push(tonicTriad[0], tonicTriad[2]);
-                }
-                lhEndTokens[lastIdx] = buildChordToken(notePoolLH, letters, dur, true);
-                lhBars[endBarIdx] = lhEndTokens.join(' ');
-            }
-        }
-
-        phraseStart = endBarIdx + 1;
-    });
-
-    return { rhBars, lhBars };
-}
 
 // degree: 1..7 (I..VII). Returns triad letters [root, third, fifth]
 function triadForDegree(degree: number, tonicLetter: string): [string, string, string] {
@@ -585,7 +484,7 @@ function generateAbcForPreset(preset: Preset): string {
         endExts.push(ninthForDegree(endDegree, tonicLetter));
     }
 
-    ({ rhBars, lhBars } = enforcePhrasesAndAccents(preset, rhBars, lhBars));
+    // Removed phrasing enforcement to simplify generation; only final cadence handled below.
 
     // --- RIGHT HAND: ensure cadential last note is a chord tone ---
 
