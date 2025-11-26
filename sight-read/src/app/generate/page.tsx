@@ -327,24 +327,19 @@ function diatonicLettersFrom(tonicLetter: string): string[] {
     return seq;
 }
 
+function diatonicExtension(keyLabel: string, degree: number): string {
+    const { tonicLetter } = parseKeyLabel(keyLabel);
+    const seq = diatonicLettersFrom(tonicLetter);
+    const normalized = ((degree - 1) % 7 + 7) % 7;
+    return seq[normalized];
+}
+
 
 // degree: 1..7 (I..VII). Returns triad letters [root, third, fifth]
 function triadForDegree(degree: number, tonicLetter: string): [string, string, string] {
     const seq = diatonicLettersFrom(tonicLetter);
     const i = (degree - 1) % 7;
     return [seq[i], seq[(i + 2) % 7], seq[(i + 4) % 7]];
-}
-
-function seventhForDegree(degree: number, tonicLetter: string): string {
-    const seq = diatonicLettersFrom(tonicLetter);
-    const i = (degree - 1) % 7;
-    return seq[(i + 6) % 7]; // diatonic seventh above root
-}
-
-function ninthForDegree(degree: number, tonicLetter: string): string {
-    const seq = diatonicLettersFrom(tonicLetter);
-    const i = (degree - 1) % 7;
-    return seq[(i + 1) % 7]; // diatonic 9th (same letter as 2nd)
 }
 
 function pickNoteFromPoolByLetter(notePool: string[], letter: string, preferLower = false): string | null {
@@ -457,7 +452,6 @@ function pickSpecificChordTone(letters: [string, string, string], which: 'root' 
     return letters[2]; // 'fifth'
 }
 
-
 // Build ABC with two voices (RH treble, LH bass), 4 bars per line, with harmonic start/end enforcement
 function generateAbcForPreset(preset: Preset): string {
     const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, noteLength, lhStyle, meter } = preset;
@@ -479,14 +473,10 @@ function generateAbcForPreset(preset: Preset): string {
 
     const add7 = preset.grade >= 6;
     const add9 = preset.grade >= 8;
-    const endExts: string[] = add7 ? [seventhForDegree(endDegree, tonicLetter)] : [];
+    const endExts: string[] = add7 ? [diatonicExtension(tonicLetter, endDegree + 6)] : [];
     if (add9) {
-        endExts.push(ninthForDegree(endDegree, tonicLetter));
+        endExts.push(diatonicExtension(tonicLetter, endDegree + 1));
     }
-
-    // Removed phrasing enforcement to simplify generation; only final cadence handled below.
-
-    // --- RIGHT HAND: ensure cadential last note is a chord tone ---
 
     // RH ending tone (cadential feel): prefer root or third; allow fifth occasionally
     const lastIdx = bars - 1;
