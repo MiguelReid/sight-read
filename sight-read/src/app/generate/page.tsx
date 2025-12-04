@@ -164,13 +164,10 @@ function planDurations(effComplexity: number): DurationPlan {
         };
     }
 
-    // At higher complexity, use L:1/16 with balanced mix.
-    // Map eff 0.55..1.0 to t 0..1, bias so sixteenths rise but cap ~45%.
     const t = Math.max(0, Math.min(1, (effComplexity - 0.55) / 0.45));
-    // Reduce eighth note dominance at higher grades; keep quarters present.
-    const sixteenthW = 0.10; // 35% → 55%
-    const eighthW = 0.50 - 0.10 * t;    // 45% → 25%
-    const quarterW = 0.40; + 0.10 * t;              // Steady 40%
+    const sixteenthW = 0.10;
+    const eighthW = 0.50 - 0.10 * t;
+    const quarterW = 0.40; + 0.10 * t;
     return {
         noteLength: '1/16',
         durations: [
