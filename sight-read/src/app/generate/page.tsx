@@ -9,7 +9,7 @@ const TOTAL_BARS = BARS_PER_LINE * LINES;
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 type Duration = { token: string; units: number; weight: number };
-type LHStyle = 'none' | 'drone' | 'halves' | 'quarters' | 'eighths' | 'simple-melodic';
+type LHStyle = 'none' | 'drone' | 'halves' | 'quarters' | 'eighths';
 
 type Preset = {
     grade: number;
@@ -217,10 +217,7 @@ function getPreset(grade: number): Preset {
     if (g <= 2) lhStyle = 'none';
     else if (g === 3) lhStyle = 'drone';
     else if (g === 4) lhStyle = 'halves';
-    else if (g === 5) lhStyle = 'quarters';
-    else if (g === 6) lhStyle = 'quarters';
-    else if (g === 7) lhStyle = 'eighths';
-    else lhStyle = 'simple-melodic';
+    else if (g >= 5) lhStyle = 'quarters';
 
     return {
         grade: g,
@@ -407,35 +404,6 @@ function makeLeftHandBars(
             out.push(tokens.join(' '));
             continue;
         }
-
-        // Melodic styles: use the durations plan, but for 'simple-melodic' avoid the fastest subdivision
-        const durList = style === 'simple-melodic'
-            ? durations.filter(d => d.units > 1) // drop 1-unit (sixteenth) when L:1/16
-            : durations;
-
-        let used = 0;
-        let runSmall = 0;
-        let hasNonSmall = false;
-        const minUnits = Math.min(...durList.map(d => d.units));
-        const maxSmallRun = 3;
-        const tokens: string[] = [];
-        while (used < unitsPerBar) {
-            const remaining = unitsPerBar - used;
-            const candidates = durList.filter(d => d.units <= remaining);
-            const pickList = candidates.length ? candidates : durList;
-            const d = pickWeightedRandom(pickList, (x) => {
-                let w = x.weight;
-                if (x.units === minUnits && runSmall >= maxSmallRun) w *= 0.2;
-                const isNonSmall = x.units > minUnits;
-                if (!hasNonSmall && remaining <= minUnits * 2 && isNonSmall && x.units <= remaining) w *= 3.0;
-                return Math.max(w, 0.0001);
-            });
-            const n = notePool[Math.floor(Math.random() * notePool.length)];
-            tokens.push(`${n}${d.token}`);
-            used += d.units;
-            if (d.units === minUnits) runSmall += 1; else { runSmall = 0; hasNonSmall = true; }
-        }
-        out.push(tokens.join(' '));
     }
     return out;
 }
