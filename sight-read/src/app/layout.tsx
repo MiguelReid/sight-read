@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import NavigationBar from '../../components/NavigationBar';
 import Providers from './providers';
 
 const geistSans = Geist({
@@ -24,12 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body style={{ margin: 0 }}>
         <Providers>
-          {/* Top bar */}
-          <NavigationBar />
-          {/* Page content */}
-          <main style={{ padding: '24px' }}>
-            {children}
-          </main>
+          {children}
         </Providers>
       </body>
     </html>
