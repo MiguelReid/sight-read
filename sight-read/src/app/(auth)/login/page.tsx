@@ -1,7 +1,8 @@
 "use client";
 import Link from 'next/link';
-import { signIn } from 'next-auth/react';
 import Image from 'next/image';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '../../../lib/firebase';
  
 export default function LoginPage() {
   return (
@@ -27,8 +28,11 @@ export default function LoginPage() {
           </div>
           <button
             type="button"
-            onClick={() => signIn('google', { callbackUrl: '/' })}
-            className="w-full px-4 py-2 border flex items-center justify-center gap-2 border-slate-200 dark:border-slate-700 rounded-lg text-black dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500 hover:text-black dark:hover:text-slate-300 hover:shadow transition duration-150"
+            onClick={async () => {
+              await signInWithPopup(auth, googleProvider);
+              window.location.href = '/';
+            }}
+            className="w-full px-4 py-2 flex items-center justify-center gap-2 rounded-lg bg-gray-600 text-black hover:bg-gray-400 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-slate-600 hover:shadow transition duration-150"
             aria-label="Sign in with Google"
           >
             <Image src="/google-icon.svg" alt="Google logo" width={24} height={24} />

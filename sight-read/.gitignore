@@ -25,14 +25,21 @@
 *.pem
 Thumbs.db
 
+# logs
+*.log
+
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# Environment
 .env*
+.env
+.env.*
+.env.local
+.env.*.local
 
 # vercel
 .vercel
@@ -40,3 +47,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Dependencies
+node_modules/
