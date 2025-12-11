@@ -9,12 +9,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+    if (!user) {
       router.replace("/login");
+      return;
+    }
+    if (!user.emailVerified) {
+      router.replace("/login?verify=true");
     }
   }, [loading, user, router]);
 
-  if (!user) {
+  if (!user || !user.emailVerified) {
     return null;
   }
 
