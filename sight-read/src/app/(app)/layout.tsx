@@ -2,22 +2,28 @@
 import NavigationBar from "../../../components/NavigationBar";
 import { useAuth } from "../../../components/FirebaseAuthProvider";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
 
   useEffect(() => {
     if (loading) return;
+
     if (!user) {
-      router.replace("/login");
+      if (pathname !== "/login") router.replace("/login");
       return;
     }
+
     if (!user.emailVerified) {
-      router.replace("/login?verify=true");
+      const alreadyOnVerify = pathname === "/login" && search.get("verify") === "true";
+      if (!alreadyOnVerify) router.replace("/login?verify=true");
+      return;
     }
-  }, [loading, user, router]);
+  }, [loading, user, user?.email, user?.emailVerified, pathname, search, router]);
 
   if (!user || !user.emailVerified) {
     return null;

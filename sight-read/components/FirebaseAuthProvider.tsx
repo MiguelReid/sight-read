@@ -1,21 +1,20 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '../src/lib/firebase';
+import { authClient, type UserInfo } from '../src/lib/auth';
 
 type AuthContextValue = {
-  user: User | null;
+  user: UserInfo | null;
   loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue>({ user: null, loading: true });
 
 export default function FirebaseAuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = authClient.onAuthChange((u: UserInfo | null) => {
       setUser(u);
       setLoading(false);
     });

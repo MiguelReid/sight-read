@@ -1,8 +1,8 @@
 "use client";
 import Link from 'next/link';
 import { useState } from 'react';
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
-import { auth } from '../../../lib/firebase';
+import { authClient } from '../../../lib/auth';
+import { mapAuthError } from '../../../lib/auth/errorMessages';
 
 export default function CreateAccountPage() {
   const [email, setEmail] = useState('');
@@ -30,13 +30,12 @@ export default function CreateAccountPage() {
             try {
               setLoading(true);
               setError(null);
-              const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-              // optionally set a display name; omitted here as no field
-              await sendEmailVerification(cred.user);
+              await authClient.registerEmail(email.trim(), password);
               setRegistered(true);
             } catch (err) {
-              const msg = typeof err === 'object' && err && 'message' in err ? (err as { message: string }).message : 'Failed to create account';
-              setError(msg);
+              const code = typeof err === 'object' && err && 'code' in err ? (err as { code: string }).code : undefined;
+              const friendly = mapAuthError(code);
+              setError(friendly);
             } finally {
               setLoading(false);
             }

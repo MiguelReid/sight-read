@@ -1,8 +1,8 @@
 "use client";
 import Link from 'next/link';
 import Image from 'next/image';
-import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, googleProvider } from '../../../lib/firebase';
+import { authClient } from '../../../lib/auth';
+import { mapAuthError } from '../../../lib/auth/errorMessages';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
  
@@ -41,17 +41,17 @@ export default function LoginPage() {
               try {
                 setLoading(true);
                 setError(null);
-                const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
-                if (!cred.user.emailVerified) {
+                const user = await authClient.signInEmail(email.trim(), password);
+                if (!user.emailVerified) {
                   setError('Please verify your email before signing in. Check your inbox for the confirmation link.');
-                  // Optional: sign out to clear auth state if unverified
-                  await auth.signOut();
+                  await authClient.signOut();
                   return;
                 }
                 window.location.href = '/';
               } catch (err) {
-                const msg = typeof err === 'object' && err && 'message' in err ? (err as { message: string }).message : 'Failed to sign in';
-                setError(msg);
+                const code = typeof err === 'object' && err && 'code' in err ? (err as { code: string }).code : undefined;
+                const error = mapAuthError(code);
+                setError(error);
               } finally {
                 setLoading(false);
               }
@@ -70,16 +70,20 @@ export default function LoginPage() {
             type="button"
             onClick={async () => {
               try {
-                await signInWithPopup(auth, googleProvider);
-                window.location.href = '/';
-              } catch (err) {
-                const code = typeof err === 'object' && err && 'code' in err ? (err as { code: string }).code : '';
-                if (code === 'auth/popup-closed-by-user') {
-                  // Do nothing
+                const user = await authClient.signInGoogle();
+                if (!user.emailVerified) {
+                  setError('Please verify your email before signing in.');
+                  await authClient.signOut();
                   return;
                 }
-                const msg = typeof err === 'object' && err && 'message' in err ? (err as { message: string }).message : 'Google sign-in failed';
-                setError(msg);
+                window.location.href = '/';
+              } catch (err) {
+                const code = typeof err === 'object' && err && 'code' in err ? (err as { code: string }).code : undefined;
+                if (code === 'auth/popup-closed-by-user') {
+                  return;
+                }
+                const error = mapAuthError(code);
+                setError(error);
               }
             }}
             className="w-full px-4 py-2 flex items-center justify-center gap-2 rounded-lg bg-gray-600 text-black hover:bg-gray-400 dark:bg-gray-800 dark:text-slate-200 dark:hover:bg-slate-600 hover:shadow transition duration-150"
