@@ -216,34 +216,6 @@ function getPreset(grade: number): Preset {
 	};
 }
 
-function noteAndDur(token: string): { note: string; dur: string } {
-	const m = token.match(/^(\[[^\]]+\]|z|[A-Ga-g][,']*)([0-9/]*)$/);
-	if (!m) return { note: token, dur: '' };
-	return { note: m[1], dur: m[2] || '' };
-}
-
-function rebuild(note: string, dur: string) {
-	return `${note}${dur}`;
-}
-
-function replaceTokenInBar(bar: string, idx: number, newTok: string): string {
-	const toks = bar.trim().split(/\s+/);
-	toks[idx] = newTok;
-	return toks.join(' ');
-}
-
-function findTokenIndexAtBeat(bar: string, beatNumber: number, unitsPerBar: number, meterNum: number, beatUnit: number): number | null {
-	const toks = bar.trim().split(/\s+/);
-	let posUnits = 0;
-	for (let i = 0; i < toks.length; i++) {
-		if (posUnits === (beatNumber - 1) * beatUnit) return i;
-		const { dur } = noteAndDur(toks[i]);
-		const units = dur ? parseInt(dur, 10) : 1;
-		posUnits += units;
-	}
-	return null;
-}
-
 function makeBars(notePool: string[], durations: Duration[], unitsPerBar: number, bars: number): string[] {
 	const out: string[] = [];
 	const minUnits = Math.min(...durations.map(d => d.units));
@@ -383,9 +355,9 @@ function pickSpecificChordTone(letters: [string, string, string], which: 'root' 
 function generateAbcForPreset(preset: Preset): string {
 	const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, noteLength, lhStyle, meter } = preset;
 
-	let rhBars = makeBars(notePoolRH, durations, unitsPerBar, bars);
+	const rhBars = makeBars(notePoolRH, durations, unitsPerBar, bars);
 	const includeLH = lhStyle !== 'none';
-	let lhBars = includeLH ? makeLeftHandBars(lhStyle, notePoolLH, durations, unitsPerBar, bars) : [];
+	const lhBars = includeLH ? makeLeftHandBars(lhStyle, notePoolLH, durations, unitsPerBar, bars) : [];
 
 	const { tonicLetter } = parseKeyLabel(key);
 
