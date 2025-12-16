@@ -26,7 +26,7 @@ type Preset = {
 	meterNum: number;
 	meterDen: number;
 	strongBeats: number[];
-	secondaryBeats: number[]; 
+	secondaryBeats: number[];
 };
 
 type KeyDef = { label: string; acc: number }; // acc = number of sharps(+) or flats(-)
@@ -68,20 +68,20 @@ const MINOR_KEYS: KeyDef[] = [
 const KEY_DEFS: KeyDef[] = [...MAJOR_KEYS, ...MINOR_KEYS];
 
 const METER_OPTIONS = [
-	{ meter: '2/2',  num: 2, den: 2,  min: 2, weight: 2.2, strongBeats: [1], secondaryBeats: [] },
-	{ meter: '2/4',  num: 2, den: 4,  min: 1, weight: 3.5, strongBeats: [1], secondaryBeats: [] },
-	{ meter: '3/2',  num: 3, den: 2,  min: 4, weight: 1.4, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '3/4',  num: 3, den: 4,  min: 1, weight: 3.2, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '3/8',  num: 3, den: 8,  min: 3, weight: 1.6, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '4/2',  num: 4, den: 2,  min: 5, weight: 1.0, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '4/4',  num: 4, den: 4,  min: 1, weight: 5.0, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '4/8',  num: 4, den: 8,  min: 3, weight: 1.3, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '6/4',  num: 6, den: 4,  min: 5, weight: 1.1, strongBeats: [1], secondaryBeats: [4] },
-	{ meter: '6/8',  num: 6, den: 8,  min: 3, weight: 2.4, strongBeats: [1], secondaryBeats: [4] },
-	{ meter: '9/8',  num: 9, den: 8,  min: 6, weight: 1.2, strongBeats: [1], secondaryBeats: [4,7] },
-	{ meter: '12/8', num: 12, den: 8, min: 7, weight: 1.0, strongBeats: [1], secondaryBeats: [4,7,10] },
-	{ meter: '5/4',  num: 5, den: 4,  min: 7, weight: 0.9, strongBeats: [1], secondaryBeats: [4] },
-	{ meter: '7/8',  num: 7, den: 8,  min: 8, weight: 0.8, strongBeats: [1], secondaryBeats: [3,5] },
+	{ meter: '2/2', num: 2, den: 2, min: 2, weight: 2.2, strongBeats: [1], secondaryBeats: [] },
+	{ meter: '2/4', num: 2, den: 4, min: 1, weight: 3.5, strongBeats: [1], secondaryBeats: [] },
+	{ meter: '3/2', num: 3, den: 2, min: 4, weight: 1.4, strongBeats: [1], secondaryBeats: [3] },
+	{ meter: '3/4', num: 3, den: 4, min: 1, weight: 3.2, strongBeats: [1], secondaryBeats: [3] },
+	{ meter: '3/8', num: 3, den: 8, min: 3, weight: 1.6, strongBeats: [1], secondaryBeats: [3] },
+	{ meter: '4/2', num: 4, den: 2, min: 5, weight: 1.0, strongBeats: [1], secondaryBeats: [3] },
+	{ meter: '4/4', num: 4, den: 4, min: 1, weight: 5.0, strongBeats: [1], secondaryBeats: [3] },
+	{ meter: '4/8', num: 4, den: 8, min: 3, weight: 1.3, strongBeats: [1], secondaryBeats: [3] },
+	{ meter: '6/4', num: 6, den: 4, min: 5, weight: 1.1, strongBeats: [1], secondaryBeats: [4] },
+	{ meter: '6/8', num: 6, den: 8, min: 3, weight: 2.4, strongBeats: [1], secondaryBeats: [4] },
+	{ meter: '9/8', num: 9, den: 8, min: 6, weight: 1.2, strongBeats: [1], secondaryBeats: [4, 7] },
+	{ meter: '12/8', num: 12, den: 8, min: 7, weight: 1.0, strongBeats: [1], secondaryBeats: [4, 7, 10] },
+	{ meter: '5/4', num: 5, den: 4, min: 7, weight: 0.9, strongBeats: [1], secondaryBeats: [4] },
+	{ meter: '7/8', num: 7, den: 8, min: 8, weight: 0.8, strongBeats: [1], secondaryBeats: [3, 5] },
 ];
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
