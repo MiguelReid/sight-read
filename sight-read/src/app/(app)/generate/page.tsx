@@ -509,24 +509,19 @@ export default function Generate() {
 	}, []);
 
 	return (
-		<div style={{ padding: '2rem' }}>
-			<div className="no-print" style={{ marginBottom: '1rem' }}>
-				<h1 style={{ margin: 0 }}>Generate Sheet Music</h1>
-				<p style={{ marginTop: 4 }}>Select a grade and click Generate New.</p>
+		<div className="p-4 md:p-8 grid grid-cols-[200px_1fr] md:grid-cols-[240px_1fr] lg:grid-cols-[300px_1fr] gap-4 md:gap-8 items-start">
+			<div className="no-print flex flex-col gap-6">
+				<div>
+					<h3 className="text-2xl font-bold m-0">Generate Sheet Music</h3>
+				</div>
 
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0.5rem 0 1rem' }}>
-					<label htmlFor="grade-select" style={{ fontWeight: 600 }}>Grade</label>
+				<div className="flex flex-col gap-2">
+					<label htmlFor="grade-select" className="font-semibold">Grade</label>
 					<select
 						id="grade-select"
 						value={grade}
 						onChange={(e) => setGrade(parseInt(e.target.value, 10))}
-						style={{
-							padding: '0.35rem 0.6rem',
-							borderRadius: 6,
-							border: '1px solid #ccc',
-							background: '#fff',
-							color: '#000'
-						}}
+						className="p-2 rounded border border-gray-300 bg-white text-black"
 						aria-label="Select difficulty grade"
 					>
 						{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
@@ -535,58 +530,43 @@ export default function Generate() {
 					</select>
 				</div>
 
-				<div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '0.75rem', color: '#555' }}>
+				<div className="text-gray-600">
 					<span>Key: {lastPreset ? lastPreset.key : '—'}</span>
 				</div>
 
-				<div style={{ display: 'flex', gap: 8 }}>
+				<div className="flex flex-col gap-3">
 					<button
 						onClick={handleGenerate}
-						style={{
-							padding: '0.6rem 1rem',
-							background: '#1e90ff',
-							color: '#fff',
-							border: 'none',
-							borderRadius: 6,
-							cursor: 'pointer'
-						}}
+						className="px-4 py-2.5 bg-blue-500 text-white border-none rounded-md cursor-pointer hover:bg-blue-600 transition-colors"
 					>
 						Generate New
 					</button>
-					<button
-						onClick={handlePlay}
-						disabled={!abc || isPlaying}
-						style={{
-							padding: '0.6rem 1rem',
-							background: isPlaying ? '#8aaed8' : '#28a745',
-							color: '#fff',
-							border: 'none',
-							borderRadius: 6,
-							cursor: isPlaying ? 'default' : 'pointer'
-						}}
-						title="Play"
-					>
-						Play
-					</button>
-					<button
-						onClick={handleStop}
-						disabled={!isPlaying}
-						style={{
-							padding: '0.6rem 1rem',
-							background: '#dc3545',
-							color: '#fff',
-							border: 'none',
-							borderRadius: 6,
-							cursor: !isPlaying ? 'default' : 'pointer'
-						}}
-						title="Stop"
-					>
-						Stop
-					</button>
+					<div className="grid grid-cols-2 gap-3">
+						<button
+							onClick={handlePlay}
+							disabled={!abc || isPlaying}
+							className={`px-4 py-2.5 text-white border-none rounded-md transition-colors ${
+								isPlaying ? 'bg-blue-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700'
+							}`}
+							title="Play"
+						>
+							Play
+						</button>
+						<button
+							onClick={handleStop}
+							disabled={!isPlaying}
+							className={`px-4 py-2.5 text-white border-none rounded-md transition-colors ${
+								!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700'
+							}`}
+							title="Stop"
+						>
+							Stop
+						</button>
+					</div>
 				</div>
 			</div>
 
-			<div className="a4-page">
+			<div className="a4-page overflow-auto max-w-full">
 				<div className="a4-content">
 					<div className="score-title">
 						<div className="main">Sight Reading Practice</div>
