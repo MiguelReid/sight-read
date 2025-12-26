@@ -5,7 +5,7 @@ import abcjs from 'abcjs';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
-type Duration = { token: string; units: number; weight: number };
+type Duration = { token: string; units: number; weight: number; isRest?: boolean };
 type LHStyle = 'none' | 'drone' | 'halves' | 'quarters';
 
 type Preset = {
@@ -14,7 +14,7 @@ type Preset = {
 	key: string;
 	bars: number;
 	barsPerLine: number;
-	noteLength: '1/8' | '1/16';
+	noteLength: '1/8';
 	unitsPerBar: number;
 	durations: Duration[];
 	notePoolRH: string[];
@@ -139,35 +139,45 @@ function tempoRangeForGrade(grade: number): [number, number] {
 }
 
 type DurationPlan = {
-	noteLength: '1/8' | '1/16';
+	noteLength: '1/8';
 	durations: Duration[];
 };
 
 function planDurations(effComplexity: number): DurationPlan {
-	if (effComplexity < 0.55) {
-		const t = Math.max(0, Math.min(1, effComplexity / 0.55));
-		const eighthW = 0.60 - 0.15 * t;
-		const quarterW = 0.40 + 0.15 * t;
-		return {
-			noteLength: '1/8',
-			durations: [
-				{ token: '', units: 1, weight: eighthW },
-				{ token: '2', units: 2, weight: quarterW },
-			],
-		};
+	// All grades use 1/8 as base unit for consistent notation
+	// Higher complexity adds shorter notes but always keeps longer values present
+	
+	// Base weights that ensure musical variety at all levels
+	const halfW = 0.18;              // Half note (4 units) - always present for phrasing
+	const dottedQuarterW = 0.12;     // Dotted quarter (3 units) - adds rhythmic interest
+	const quarterW = 0.28;           // Quarter note (2 units) - backbone of most music
+	const eighthW = 0.22 - 0.08 * effComplexity;  // Eighth note - decreases slightly as complexity rises
+	const sixteenthW = effComplexity >= 0.5 ? 0.06 * effComplexity : 0; // Only appears at higher grades
+	
+	// Rests - musical breathing room (more present now)
+	const halfRestW = 0.06;
+	const quarterRestW = 0.08;
+	const eighthRestW = 0.04;
+	
+	const durations: Duration[] = [
+		{ token: '4', units: 4, weight: halfW },           // Half note
+		{ token: '3', units: 3, weight: dottedQuarterW }, // Dotted quarter
+		{ token: '2', units: 2, weight: quarterW },       // Quarter note
+		{ token: '', units: 1, weight: eighthW },         // Eighth note
+		{ token: '4', units: 4, weight: halfRestW, isRest: true },
+		{ token: '2', units: 2, weight: quarterRestW, isRest: true },
+		{ token: '', units: 1, weight: eighthRestW, isRest: true },
+	];
+	
+	// Add sixteenth notes for higher complexity (grade 5+)
+	if (sixteenthW > 0) {
+		durations.push({ token: '/2', units: 0.5, weight: sixteenthW }); // Sixteenth note
+		durations.push({ token: '/2', units: 0.5, weight: 0.02, isRest: true }); // Sixteenth rest
 	}
-
-	const t = Math.max(0, Math.min(1, (effComplexity - 0.55) / 0.45));
-	const sixteenthW = 0.10;
-	const eighthW = 0.50 - 0.10 * t;
-	const quarterW = 0.40 + 0.10 * t;
+	
 	return {
-		noteLength: '1/16',
-		durations: [
-			{ token: '', units: 1, weight: sixteenthW },
-			{ token: '2', units: 2, weight: eighthW },
-			{ token: '4', units: 4, weight: quarterW },
-		],
+		noteLength: '1/8',
+		durations,
 	};
 }
 
@@ -188,9 +198,8 @@ function getPreset(grade: number, totalBars: number, barsPerLine: number): Prese
 	const { meter, num: meterNum, den: meterDen, strongBeats, secondaryBeats } = meterOpt;
 
 	const { noteLength, durations } = planDurations(effComplexity);
-	const baseDen = noteLength === '1/8' ? 8 : 16;
-
-	const unitsPerBar = meterNum * (baseDen / meterDen);
+	// Base unit is always 1/8, so calculate units per bar accordingly
+	const unitsPerBar = meterNum * (8 / meterDen);
 
 	const notePoolRH: string[] = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
 	if (effComplexity >= 0.4) notePoolRH.push("c'", "d'");
@@ -229,10 +238,12 @@ function makeBars(notePool: string[], durations: Duration[], unitsPerBar: number
 	const out: string[] = [];
 	const minUnits = Math.min(...durations.map(d => d.units));
 	const maxSmallRun = 3;
+	const maxConsecutiveRests = 1; // Never have two rests in a row
 	for (let b = 0; b < bars; b++) {
 		let used = 0;
 		let runSmall = 0;
 		let hasNonSmall = false;
+		let consecutiveRests = 0;
 		const tokens: string[] = [];
 		while (used < unitsPerBar) {
 			const remaining = unitsPerBar - used;
@@ -243,10 +254,21 @@ function makeBars(notePool: string[], durations: Duration[], unitsPerBar: number
 				if (x.units === minUnits && runSmall >= maxSmallRun) w *= 0.2;
 				const isNonSmall = x.units > minUnits;
 				if (!hasNonSmall && remaining <= minUnits * 2 && isNonSmall && x.units <= remaining) w *= 3.0;
+				// Discourage rests at start of bar or after consecutive rests
+				if (x.isRest) {
+					if (used === 0) w *= 0.3; // Less likely to start bar with rest
+					if (consecutiveRests >= maxConsecutiveRests) w *= 0.1;
+				}
 				return Math.max(w, 0.0001);
 			});
-			const note = notePool[Math.floor(Math.random() * notePool.length)];
-			tokens.push(`${note}${d.token}`);
+			if (d.isRest) {
+				tokens.push(`z${d.token}`);
+				consecutiveRests++;
+			} else {
+				const note = notePool[Math.floor(Math.random() * notePool.length)];
+				tokens.push(`${note}${d.token}`);
+				consecutiveRests = 0;
+			}
 			used += d.units;
 			if (d.units === minUnits) runSmall += 1; else { runSmall = 0; hasNonSmall = true; }
 		}
@@ -335,21 +357,79 @@ function makeLeftHandBars(
 		const note = notePool[Math.floor(Math.random() * notePool.length)];
 
 		if (style === 'drone') {
+			// Grade 3: whole bar sustained note
 			out.push(`${note}${tokenFromUnits(unitsPerBar)}`);
 			continue;
 		}
 
-		if (style === 'halves' || style === 'quarters') {
-			const divisions = style === 'halves' ? 2 : style === 'quarters' ? 4 : 8;
-			const segUnits = Math.max(1, Math.floor(unitsPerBar / divisions));
+		if (style === 'halves') {
+			// Grade 4: use half notes and quarter notes with some rests
+			const lhDurations: Duration[] = [
+				{ token: '4', units: 4, weight: 0.35 },  // Half note
+				{ token: '2', units: 2, weight: 0.40 },  // Quarter note
+				{ token: '4', units: 4, weight: 0.10, isRest: true },  // Half rest
+				{ token: '2', units: 2, weight: 0.15, isRest: true },  // Quarter rest
+			];
 			const tokens: string[] = [];
 			let used = 0;
+			let hadRest = false;
 			while (used < unitsPerBar) {
-				const n = notePool[Math.floor(Math.random() * notePool.length)];
 				const remaining = unitsPerBar - used;
-				const len = Math.min(segUnits, remaining);
-				tokens.push(`${n}${tokenFromUnits(len)}`);
-				used += len;
+				const candidates = lhDurations.filter(d => d.units <= remaining);
+				const pickList = candidates.length ? candidates : lhDurations;
+				const d = pickWeightedRandom(pickList, (x) => {
+					let w = x.weight;
+					if (x.isRest && hadRest) w *= 0.1; // Avoid consecutive rests
+					if (x.isRest && used === 0) w *= 0.3; // Less likely to start with rest
+					return Math.max(w, 0.0001);
+				});
+				if (d.isRest) {
+					tokens.push(`z${d.token}`);
+					hadRest = true;
+				} else {
+					const n = notePool[Math.floor(Math.random() * notePool.length)];
+					tokens.push(`${n}${d.token}`);
+					hadRest = false;
+				}
+				used += d.units;
+			}
+			out.push(tokens.join(' '));
+			continue;
+		}
+
+		if (style === 'quarters') {
+			// Grade 5+: use the full duration system like RH
+			const lhDurations: Duration[] = [
+				{ token: '4', units: 4, weight: 0.20 },  // Half note
+				{ token: '3', units: 3, weight: 0.12 }, // Dotted quarter
+				{ token: '2', units: 2, weight: 0.35 },  // Quarter note
+				{ token: '', units: 1, weight: 0.15 },   // Eighth note
+				{ token: '4', units: 4, weight: 0.06, isRest: true },  // Half rest
+				{ token: '2', units: 2, weight: 0.08, isRest: true },  // Quarter rest
+				{ token: '', units: 1, weight: 0.04, isRest: true },   // Eighth rest
+			];
+			const tokens: string[] = [];
+			let used = 0;
+			let hadRest = false;
+			while (used < unitsPerBar) {
+				const remaining = unitsPerBar - used;
+				const candidates = lhDurations.filter(d => d.units <= remaining);
+				const pickList = candidates.length ? candidates : lhDurations;
+				const d = pickWeightedRandom(pickList, (x) => {
+					let w = x.weight;
+					if (x.isRest && hadRest) w *= 0.1; // Avoid consecutive rests
+					if (x.isRest && used === 0) w *= 0.3; // Less likely to start with rest
+					return Math.max(w, 0.0001);
+				});
+				if (d.isRest) {
+					tokens.push(`z${d.token}`);
+					hadRest = true;
+				} else {
+					const n = notePool[Math.floor(Math.random() * notePool.length)];
+					tokens.push(`${n}${d.token}`);
+					hadRest = false;
+				}
+				used += d.units;
 			}
 			out.push(tokens.join(' '));
 			continue;
