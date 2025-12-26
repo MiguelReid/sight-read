@@ -4,9 +4,9 @@ import Image from 'next/image';
 import { authClient } from '../../../lib/auth';
 import { mapAuthError } from '../../../lib/auth/errorMessages';
 import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
- 
-export default function LoginPage() {
+import { useState, Suspense } from 'react';
+
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -99,5 +99,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[70vh] grid place-items-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

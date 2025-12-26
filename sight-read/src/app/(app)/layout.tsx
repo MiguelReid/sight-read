@@ -1,10 +1,10 @@
 "use client";
 import NavigationBar from "../../../components/NavigationBar";
 import { useAuth } from "../../../components/FirebaseAuthProvider";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -34,5 +34,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <NavigationBar />
       {children}
     </>
+  );
+}
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <AppLayoutInner>{children}</AppLayoutInner>
+    </Suspense>
   );
 }

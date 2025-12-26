@@ -7,6 +7,16 @@ import path from "path";
 // exists in a parent folder like the user profile directory).
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
+  
+  // Static export for Capacitor native apps
+  // This generates a static /out folder instead of requiring a Node server
+  output: 'export',
+  
+  // Disable image optimization (not supported in static export)
+  // If you need images, use standard <img> tags or a CDN
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;

@@ -577,6 +577,11 @@ export default function Generate() {
 			const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
 			audioCtxRef.current = new AC();
 		}
+		const audioCtx = audioCtxRef.current!;
+		// iOS Safari: resume suspended audio context on user interaction
+		if (audioCtx.state === 'suspended') {
+			await audioCtx.resume();
+		}
 		if (!synthRef.current) {
 			synthRef.current = new (abcjs as any).synth.CreateSynth() as SynthLike;
 		} else {
@@ -612,45 +617,46 @@ export default function Generate() {
 	}, []);
 
 	return (
-		<div className="p-4 md:p-8 grid grid-cols-[200px_1fr] md:grid-cols-[240px_1fr] lg:grid-cols-[300px_1fr] gap-4 md:gap-8 items-start">
-			<div className="no-print flex flex-col gap-6">
+		<div className="p-4 md:p-8 flex flex-col lg:grid lg:grid-cols-[280px_1fr] gap-4 md:gap-8 items-start">
+			<div className="no-print flex flex-col gap-4 w-full lg:w-auto">
 				<div>
-					<h3 className="text-2xl font-bold m-0">Sight Reading Practice</h3>
+					<h3 className="text-xl md:text-2xl font-bold m-0">Sight Reading Practice</h3>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					<label htmlFor="grade-select" className="font-semibold">Grade Selector</label>
-					<select
-						id="grade-select"
-						value={grade}
-						onChange={(e) => setGrade(parseInt(e.target.value, 10))}
-						className="p-2 rounded border border-gray-300 bg-white text-black"
-						aria-label="Select difficulty grade"
-					>
-						{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
-							<option key={g} value={g}>Grade {g}</option>
-						))}
-					</select>
-				</div>
+				<div className="flex flex-row lg:flex-col gap-4 flex-wrap items-start">
+					<div className="flex flex-col gap-2 min-w-[140px]">
+						<label htmlFor="grade-select" className="font-semibold text-sm">Grade</label>
+						<select
+							id="grade-select"
+							value={grade}
+							onChange={(e) => setGrade(parseInt(e.target.value, 10))}
+							className="p-2.5 rounded border border-gray-300 bg-white text-black min-h-[44px]"
+							aria-label="Select difficulty grade"
+						>
+							{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
+								<option key={g} value={g}>Grade {g}</option>
+							))}
+						</select>
+					</div>
 
-				<div className="text-gray-600 flex flex-col gap-1">
-					<span>Key: {lastPreset ? lastPreset.key : '—'}</span>
-					<span>Tempo: {lastPreset ? `♩ = ${lastPreset.tempo}` : '—'}</span>
-				</div>
+					<div className="text-gray-600 flex flex-col gap-1 text-sm">
+						<span>Key: {lastPreset ? lastPreset.key : '—'}</span>
+						<span>Tempo: {lastPreset ? `♩ = ${lastPreset.tempo}` : '—'}</span>
+					</div>
 
-				<div className="flex flex-col gap-3">
-					<button
-						onClick={handleGenerate}
-						className="px-4 py-2.5 bg-blue-500 text-white border-none rounded-md cursor-pointer hover:bg-blue-600 transition-colors"
-					>
-						Generate
-					</button>
-					<div className="grid grid-cols-2 gap-3">
+					<div className="flex flex-row lg:flex-col gap-2">
+						<button
+							onClick={handleGenerate}
+							className="px-4 py-2.5 bg-blue-500 text-white border-none rounded-md cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors min-h-[44px] min-w-[44px]"
+						>
+							Generate
+						</button>
+					<div className="flex flex-row gap-2">
 						<button
 							onClick={handlePlay}
 							disabled={!abc || isPlaying}
-							className={`px-4 py-2.5 text-white border-none rounded-md transition-colors ${
-								isPlaying ? 'bg-blue-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700'
+							className={`px-4 py-2.5 text-white border-none rounded-md transition-colors min-h-[44px] min-w-[44px] ${
+								isPlaying ? 'bg-blue-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700 active:bg-green-800'
 							}`}
 							title="Play"
 						>
@@ -659,13 +665,14 @@ export default function Generate() {
 						<button
 							onClick={handleStop}
 							disabled={!isPlaying}
-							className={`px-4 py-2.5 text-white border-none rounded-md transition-colors ${
-								!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700'
+							className={`px-4 py-2.5 text-white border-none rounded-md transition-colors min-h-[44px] min-w-[44px] ${
+								!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700 active:bg-red-800'
 							}`}
 							title="Stop"
 						>
 							Stop
 						</button>
+					</div>
 					</div>
 				</div>
 			</div>

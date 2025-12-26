@@ -48,5 +48,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# ===================
+# Capacitor / Mobile
+# ===================
+
+# Ignore entire native folders (regenerate with `npx cap add ios/android`)
+ios/
+android/
+*.apk
+*.aab
+
 # Dependencies
 node_modules/
