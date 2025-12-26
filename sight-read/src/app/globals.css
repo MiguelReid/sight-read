@@ -61,79 +61,13 @@ body {
   background: #f3f4f6;
 }
 
-/* A4 page look */
-.a4-page {
-  width: 210mm;  
-  min-height: 280mm;      
-  background: #fff;
-  margin: 16px auto;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  display: flex;
-}
-
-.a4-content {
-  padding: 12mm 15mm;
-  width: 100%;
-  background: #fff;
-  color: #000;
-}
-
-.a4-content .abcjs-container,
-.a4-content svg {
-  width: 100% !important;
-  height: auto;
-}
-
-/* Title block */
-.score-title {
-  margin-bottom: 8mm;
-  text-align: center;
-}
-.score-title .main {
-  font: 700 25px "Times New Roman", Georgia, serif;
-  color: #000;
-}
-.score-title .sub {
-  margin-top: 2mm;
-  font: 600 16px "Times New Roman", Georgia, serif;
-  color: #333;
-}
-
 /* Overlays above the first system */
 .score-wrap { position: relative; }
-
-.tempo-overlay {
-  position: absolute;
-  top: 0;
-  left: 8mm;
-  font: 700 18px "Times New Roman", Georgia, serif;
-  color: #000;
-  white-space: nowrap;
-}
-
-.brand-overlay {
-  position: absolute;
-  top: 0;
-  right: 8mm;
-  font: 700 16px "Times New Roman", Georgia, serif;
-  color: #000;
-  white-space: nowrap;
-  font-style: normal;
-  font-style: italic;
-}
-
-.score-surface { margin-top: 16mm; }
 
 /* Hide UI when printing; keep the page clean */
 @media print {
   body { background: #fff; }
   .no-print { display: none !important; }
-  .a4-page {
-    box-shadow: none;
-    margin: 0;
-    width: 210mm;
-    min-height: 297mm;
-  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -142,10 +76,4 @@ body {
     --background: #ffffff;
     --foreground: #171717;
   }
-}
-
-/* Ensure the browser prints on A4 with margins */
-@page {
-  size: A4;
-  margin: 12mm 15mm;
 }

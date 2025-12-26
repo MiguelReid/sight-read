@@ -3,19 +3,17 @@
 import { useEffect, useRef, useState } from 'react';
 import abcjs from 'abcjs';
 
-const BARS_PER_LINE = 5;
-const LINES = 5;
-const TOTAL_BARS = BARS_PER_LINE * LINES;
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 type Duration = { token: string; units: number; weight: number };
-type LHStyle = 'none' | 'drone' | 'halves' | 'quarters' | 'eighths';
+type LHStyle = 'none' | 'drone' | 'halves' | 'quarters';
 
 type Preset = {
 	grade: number;
 	tempo: number;
 	key: string;
 	bars: number;
+	barsPerLine: number;
 	noteLength: '1/8' | '1/16';
 	unitsPerBar: number;
 	durations: Duration[];
@@ -85,6 +83,16 @@ const METER_OPTIONS = [
 ];
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+
+function computeLayout(width: number) {
+	const barsPerLine = clamp(Math.floor(width / 190), 3, 6); // cap at 6 to avoid crowding
+	let lines = 3;
+	if (width < 640) lines = 4;
+	else if (width < 960) lines = 4;
+	else lines = 3;
+	const totalBars = barsPerLine * lines;
+	return { totalBars, barsPerLine };
+}
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 
 function pickWeightedRandom<T>(items: T[], getWeight: (t: T) => number): T {
@@ -152,7 +160,7 @@ function planDurations(effComplexity: number): DurationPlan {
 	const t = Math.max(0, Math.min(1, (effComplexity - 0.55) / 0.45));
 	const sixteenthW = 0.10;
 	const eighthW = 0.50 - 0.10 * t;
-	const quarterW = 0.40; + 0.10 * t;
+	const quarterW = 0.40 + 0.10 * t;
 	return {
 		noteLength: '1/16',
 		durations: [
@@ -163,7 +171,7 @@ function planDurations(effComplexity: number): DurationPlan {
 	};
 }
 
-function getPreset(grade: number): Preset {
+function getPreset(grade: number, totalBars: number, barsPerLine: number): Preset {
 	const g = clamp(grade, 1, 8);
 	const keyDef = pickKeyForGrade(g);
 	const key = keyDef.label;
@@ -201,7 +209,8 @@ function getPreset(grade: number): Preset {
 		grade: g,
 		tempo,
 		key,
-		bars: TOTAL_BARS,
+		bars: totalBars,
+		barsPerLine,
 		noteLength,
 		unitsPerBar,
 		durations,
@@ -315,7 +324,11 @@ function makeLeftHandBars(
 	unitsPerBar: number,
 	bars: number
 ): string[] {
-	if (style === 'none') return [];
+	if (style === 'none') {
+		// For grades 1-2 we still render LH staff but fill with full-bar rests.
+		const rest = `z${tokenFromUnits(unitsPerBar)}`;
+		return Array.from({ length: bars }, () => rest);
+	}
 
 	const out: string[] = [];
 	for (let b = 0; b < bars; b++) {
@@ -326,7 +339,7 @@ function makeLeftHandBars(
 			continue;
 		}
 
-		if (style === 'halves' || style === 'quarters' || style === 'eighths') {
+		if (style === 'halves' || style === 'quarters') {
 			const divisions = style === 'halves' ? 2 : style === 'quarters' ? 4 : 8;
 			const segUnits = Math.max(1, Math.floor(unitsPerBar / divisions));
 			const tokens: string[] = [];
@@ -353,11 +366,10 @@ function pickSpecificChordTone(letters: [string, string, string], which: 'root' 
 }
 
 function generateAbcForPreset(preset: Preset): string {
-	const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, noteLength, lhStyle, meter } = preset;
+	const { bars, unitsPerBar, durations, notePoolRH, notePoolLH, key, noteLength, lhStyle, meter, barsPerLine } = preset;
 
 	const rhBars = makeBars(notePoolRH, durations, unitsPerBar, bars);
-	const includeLH = lhStyle !== 'none';
-	const lhBars = includeLH ? makeLeftHandBars(lhStyle, notePoolLH, durations, unitsPerBar, bars) : [];
+	const lhBars = makeLeftHandBars(lhStyle, notePoolLH, durations, unitsPerBar, bars);
 
 	const { tonicLetter } = parseKeyLabel(key);
 
@@ -384,7 +396,7 @@ function generateAbcForPreset(preset: Preset): string {
 	rhLastTokens[rhLastTokens.length - 1] = `${rhLastNote}${rhLastDur}`;
 	rhBars[lastIdx] = rhLastTokens.join(' ');
 
-	if (includeLH) {
+	if (preset.grade > 2) {
 		const lhLastTokens = lhBars[lastIdx].trim().split(/\s+/);
 		const lhLastDur = extractDurationToken(lhLastTokens[lhLastTokens.length - 1]);
 
@@ -401,16 +413,11 @@ function generateAbcForPreset(preset: Preset): string {
 		lhBars[lastIdx] = lhLastTokens.join(' ');
 	}
 
-
 	const systems: string[] = [];
-	for (let i = 0; i < bars; i += BARS_PER_LINE) {
-		const rhLine = rhBars.slice(i, i + BARS_PER_LINE).join(' | ') + (i + BARS_PER_LINE >= bars ? ' |]' : ' |');
-		if (includeLH) {
-			const lhLine = lhBars.slice(i, i + BARS_PER_LINE).join(' | ') + (i + BARS_PER_LINE >= bars ? ' |]' : ' |');
-			systems.push(`[V:RH] ${rhLine}`, `[V:LH] ${lhLine}`);
-		} else {
-			systems.push(`[V:RH] ${rhLine}`);
-		}
+	for (let i = 0; i < bars; i += barsPerLine) {
+		const rhLine = rhBars.slice(i, i + barsPerLine).join(' | ') + (i + barsPerLine >= bars ? ' |]' : ' |');
+		const lhLine = lhBars.slice(i, i + barsPerLine).join(' | ') + (i + barsPerLine >= bars ? ' |]' : ' |');
+		systems.push(`[V:RH] ${rhLine}`, `[V:LH] ${lhLine}`);
 	}
 
 	const header = [
@@ -418,13 +425,12 @@ function generateAbcForPreset(preset: Preset): string {
 		`M:${meter}`,
 		`L:${noteLength}`,
 		`K:${key}`,
+		'%%staffsep 26',
+		'%%musicspace 6',
+		'%%staves {RH LH}',
+		'V:RH clef=treble',
+		'V:LH clef=bass'
 	];
-
-	if (includeLH) {
-		header.push('%%staves {RH LH}', 'V:RH clef=treble', 'V:LH clef=bass');
-	} else {
-		header.push('V:RH clef=treble');
-	}
 
 	return [...header, ...systems].join('\n');
 }
@@ -436,6 +442,22 @@ export default function Generate() {
 	const [abc, setAbc] = useState<string>('');
 	const [lastPreset, setLastPreset] = useState<Preset | null>(null);
 	const [visualObj, setVisualObj] = useState<unknown | null>(null);
+	const [layoutConfig, setLayoutConfig] = useState({ totalBars: 18, barsPerLine: 6 });
+
+	useEffect(() => {
+		const handleResize = () => {
+			const width = window.innerWidth;
+			const newConfig = computeLayout(width);
+			setLayoutConfig(prev => {
+				if (prev.totalBars === newConfig.totalBars && prev.barsPerLine === newConfig.barsPerLine) return prev;
+				return newConfig;
+			});
+		};
+
+		handleResize();
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	}, []);
 
 	const audioCtxRef = useRef<AudioContext | null>(null);
 	interface SynthLike { stop: () => void; init: (opts: any) => Promise<void>; prime: () => Promise<void>; start: () => Promise<void>; }
@@ -445,10 +467,11 @@ export default function Generate() {
 	useEffect(() => {
 		if (!containerRef.current || !abc) return;
 		const width = containerRef.current.clientWidth || 680;
+		const scale = clamp(width / 1200, 0.72, 0.9); // keep score comfortably smaller across screens
 		const tunes = abcjs.renderAbc(containerRef.current, abc, {
 			responsive: 'resize',
 			staffwidth: width,
-			scale: 1.35,
+			scale,
 			add_classes: true,
 		});
 		setVisualObj(tunes?.[0] ?? null);
@@ -459,14 +482,14 @@ export default function Generate() {
 			try { synthRef.current.stop(); } catch { }
 			setIsPlaying(false);
 		}
-		const p = getPreset(grade);
+		const p = getPreset(grade, layoutConfig.totalBars, layoutConfig.barsPerLine);
 		setLastPreset(p);
 		setAbc(generateAbcForPreset(p));
 	};
 
 	useEffect(() => {
 		handleGenerate();
-	}, []);
+	}, [layoutConfig]);
 
 	const handlePlay = async () => {
 		if (!visualObj || !lastPreset) return;
@@ -512,11 +535,11 @@ export default function Generate() {
 		<div className="p-4 md:p-8 grid grid-cols-[200px_1fr] md:grid-cols-[240px_1fr] lg:grid-cols-[300px_1fr] gap-4 md:gap-8 items-start">
 			<div className="no-print flex flex-col gap-6">
 				<div>
-					<h3 className="text-2xl font-bold m-0">Generate Sheet Music</h3>
+					<h3 className="text-2xl font-bold m-0">Sight Reading Practice</h3>
 				</div>
 
 				<div className="flex flex-col gap-2">
-					<label htmlFor="grade-select" className="font-semibold">Grade</label>
+					<label htmlFor="grade-select" className="font-semibold">Grade Selector</label>
 					<select
 						id="grade-select"
 						value={grade}
@@ -530,8 +553,9 @@ export default function Generate() {
 					</select>
 				</div>
 
-				<div className="text-gray-600">
+				<div className="text-gray-600 flex flex-col gap-1">
 					<span>Key: {lastPreset ? lastPreset.key : '—'}</span>
+					<span>Tempo: {lastPreset ? `♩ = ${lastPreset.tempo}` : '—'}</span>
 				</div>
 
 				<div className="flex flex-col gap-3">
@@ -539,7 +563,7 @@ export default function Generate() {
 						onClick={handleGenerate}
 						className="px-4 py-2.5 bg-blue-500 text-white border-none rounded-md cursor-pointer hover:bg-blue-600 transition-colors"
 					>
-						Generate New
+						Generate
 					</button>
 					<div className="grid grid-cols-2 gap-3">
 						<button
@@ -566,18 +590,9 @@ export default function Generate() {
 				</div>
 			</div>
 
-			<div className="a4-page overflow-auto max-w-full">
-				<div className="a4-content">
-					<div className="score-title">
-						<div className="main">Sight Reading Practice</div>
-						<div className="sub">{lastPreset ? `Grade ${lastPreset.grade}` : `Grade ${grade}`}</div>
-					</div>
-
+			<div className="w-full bg-white rounded-lg shadow-md p-2 md:p-4 overflow-auto">
+				<div className="w-full [&_svg]:w-full [&_svg]:h-auto">
 					<div className="score-wrap">
-						<div className="tempo-overlay">
-							{lastPreset ? `♩ = ${lastPreset.tempo}` : ''}
-						</div>
-						<div className="brand-overlay">SightRead</div>
 						<div ref={containerRef} className="score-surface" />
 					</div>
 				</div>
