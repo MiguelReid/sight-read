@@ -1,39 +1,49 @@
 "use client";
 import NavigationBar from "../../../components/NavigationBar";
+import BottomNav from "../../../components/BottomNav";
 import { useAuth } from "../../../components/FirebaseAuthProvider";
 import { useEffect, Suspense } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
-  const search = useSearchParams();
 
   useEffect(() => {
     if (loading) return;
 
     if (!user) {
-      if (pathname !== "/login") router.replace("/login");
+      router.replace("/login");
       return;
     }
 
     if (!user.emailVerified) {
-      const alreadyOnVerify = pathname === "/login" && search.get("verify") === "true";
-      if (!alreadyOnVerify) router.replace("/login?verify=true");
+      router.replace("/login?verify=true");
       return;
     }
-  }, [loading, user, user?.email, user?.emailVerified, pathname, search, router]);
+  }, [loading, user, user?.emailVerified, router]);
 
   if (!user || !user.emailVerified) {
     return null;
   }
 
   return (
-    <>
-      <NavigationBar />
-      {children}
-    </>
+    <div className="app-shell">
+      {/* Desktop: top navigation */}
+      <div className="desktop-only">
+        <NavigationBar />
+      </div>
+
+      {/* Main content */}
+      <main className="app-main">
+        {children}
+      </main>
+
+      {/* Mobile: bottom navigation */}
+      <div className="mobile-only">
+        <BottomNav />
+      </div>
+    </div>
   );
 }
 

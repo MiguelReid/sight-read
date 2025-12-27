@@ -8,6 +8,9 @@ import path from "path";
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   
+  // Allow dev server access from local network (phone testing)
+  allowedDevOrigins: ['http://192.168.1.110:3000'],
+  
   // Static export for Capacitor native apps
   // This generates a static /out folder instead of requiring a Node server
   output: 'export',

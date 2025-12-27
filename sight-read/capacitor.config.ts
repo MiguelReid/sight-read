@@ -81,6 +81,15 @@ const config: CapacitorConfig = {
   // ═══════════════════════════════════════════════════════════════════════════
   
   plugins: {
+    // Firebase Authentication configuration
+    FirebaseAuthentication: {
+      // Skip native auth - use web SDK for token handling
+      skipNativeAuth: false,
+      
+      // Enable Google Sign-In provider
+      providers: ['google.com'],
+    },
+    
     // Splash screen configuration
     SplashScreen: {
       // How long to show splash screen (ms)

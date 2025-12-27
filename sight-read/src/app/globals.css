@@ -64,6 +64,146 @@ body {
 /* Overlays above the first system */
 .score-wrap { position: relative; }
 
+/* ===================
+   Responsive Shell
+   =================== */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh; /* dynamic viewport height for mobile */
+}
+
+.app-main {
+  flex: 1;
+  padding-bottom: env(safe-area-inset-bottom, 0); /* iOS safe area */
+}
+
+/* Mobile: add padding for bottom nav */
+@media (max-width: 767px) {
+  .app-main {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0));
+  }
+}
+
+/* Show/hide based on viewport */
+.desktop-only {
+  display: none;
+}
+.mobile-only {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .desktop-only {
+    display: block;
+  }
+  .mobile-only {
+    display: none;
+  }
+}
+
+/* ===================
+   Bottom Navigation (Mobile)
+   =================== */
+.btmnav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  padding-bottom: env(safe-area-inset-bottom, 0); /* iOS home indicator */
+}
+
+.btmnav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 64px;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
+.btmnav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 12px;
+  color: #6b7280;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+  min-width: 64px;
+}
+
+.btmnav-item:hover {
+  background: #f3f4f6;
+}
+
+.btmnav-item-active {
+  color: #2563eb;
+}
+
+.btmnav-label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Playback controls cluster */
+.btmnav-playback {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid #e5e7eb;
+}
+
+.btmnav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btmnav-btn-generate {
+  background: #3b82f6;
+  color: white;
+}
+.btmnav-btn-generate:hover {
+  background: #2563eb;
+}
+
+.btmnav-btn-play {
+  background: #22c55e;
+  color: white;
+}
+.btmnav-btn-play:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.btmnav-btn-stop {
+  background: #ef4444;
+  color: white;
+}
+.btmnav-btn-stop:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.btmnav-btn-disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Hide UI when printing; keep the page clean */
 @media print {
   body { background: #fff; }

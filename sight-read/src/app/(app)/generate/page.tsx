@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import abcjs from 'abcjs';
+import { usePlayback, useGenerateListener } from '@/lib/playback';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
@@ -523,6 +524,9 @@ export default function Generate() {
 	const [lastPreset, setLastPreset] = useState<Preset | null>(null);
 	const [visualObj, setVisualObj] = useState<unknown | null>(null);
 	const [layoutConfig, setLayoutConfig] = useState({ totalBars: 18, barsPerLine: 6 });
+	
+	// Use shared playback service
+	const { isPlaying, canPlay, play, stop, setMusic } = usePlayback();
 
 	useEffect(() => {
 		const handleResize = () => {
@@ -539,15 +543,11 @@ export default function Generate() {
 		return () => window.removeEventListener('resize', handleResize);
 	}, []);
 
-	const audioCtxRef = useRef<AudioContext | null>(null);
-	interface SynthLike { stop: () => void; init: (opts: any) => Promise<void>; prime: () => Promise<void>; start: () => Promise<void>; }
-	const synthRef = useRef<SynthLike | null>(null);
-	const [isPlaying, setIsPlaying] = useState(false);
-
+	// Render ABC notation
 	useEffect(() => {
 		if (!containerRef.current || !abc) return;
 		const width = containerRef.current.clientWidth || 680;
-		const scale = clamp(width / 1200, 0.72, 0.9); // keep score comfortably smaller across screens
+		const scale = clamp(width / 1200, 0.72, 0.9);
 		const tunes = abcjs.renderAbc(containerRef.current, abc, {
 			responsive: 'resize',
 			staffwidth: width,
@@ -557,69 +557,42 @@ export default function Generate() {
 		setVisualObj(tunes?.[0] ?? null);
 	}, [abc]);
 
-	const handleGenerate = () => {
-		if (synthRef.current) {
-			try { synthRef.current.stop(); } catch { }
-			setIsPlaying(false);
+	// Update playback service when music changes
+	useEffect(() => {
+		if (visualObj && lastPreset) {
+			setMusic({
+				visualObj,
+				tempo: lastPreset.tempo,
+				meterNum: lastPreset.meterNum,
+				meterDen: lastPreset.meterDen,
+			});
+		} else {
+			setMusic(null);
 		}
+	}, [visualObj, lastPreset, setMusic]);
+
+	const handleGenerate = useCallback(() => {
+		stop(); // Stop any current playback
 		const p = getPreset(grade, layoutConfig.totalBars, layoutConfig.barsPerLine);
 		setLastPreset(p);
 		setAbc(generateAbcForPreset(p));
-	};
+	}, [grade, layoutConfig, stop]);
 
+	// Listen for generate requests from BottomNav
+	useGenerateListener(handleGenerate);
+
+	// Generate on layout change (and initial mount)
+	const layoutKey = `${layoutConfig.totalBars}-${layoutConfig.barsPerLine}`;
 	useEffect(() => {
 		handleGenerate();
-	}, [layoutConfig]);
-
-	const handlePlay = async () => {
-		if (!visualObj || !lastPreset) return;
-		if (!audioCtxRef.current) {
-			const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
-			audioCtxRef.current = new AC();
-		}
-		const audioCtx = audioCtxRef.current!;
-		// iOS Safari: resume suspended audio context on user interaction
-		if (audioCtx.state === 'suspended') {
-			await audioCtx.resume();
-		}
-		if (!synthRef.current) {
-			synthRef.current = new (abcjs as any).synth.CreateSynth() as SynthLike;
-		} else {
-			try { synthRef.current.stop(); } catch { }
-		}
-
-		const quarterEquiv = (4 * lastPreset.meterNum) / lastPreset.meterDen;
-		const msPerMeasure = Math.round((60000 / lastPreset.tempo) * quarterEquiv);
-
-		await synthRef.current.init({
-			visualObj,
-			audioContext: audioCtxRef.current,
-			millisecondsPerMeasure: msPerMeasure,
-			options: {}
-		});
-		await synthRef.current.prime();
-		await synthRef.current.start();
-		setIsPlaying(true);
-	};
-
-	const handleStop = () => {
-		if (synthRef.current) {
-			try { synthRef.current.stop(); } catch { }
-		}
-		setIsPlaying(false);
-	};
-
-	useEffect(() => {
-		return () => {
-			try { synthRef.current?.stop(); } catch { }
-			audioCtxRef.current?.close?.();
-		};
-	}, []);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [layoutKey]);
 
 	return (
 		<div className="p-4 md:p-8 flex flex-col lg:grid lg:grid-cols-[280px_1fr] gap-4 md:gap-8 items-start">
+			{/* Controls sidebar - simplified on mobile */}
 			<div className="no-print flex flex-col gap-4 w-full lg:w-auto">
-				<div>
+				<div className="hidden md:block">
 					<h3 className="text-xl md:text-2xl font-bold m-0">Sight Reading Practice</h3>
 				</div>
 
@@ -644,39 +617,41 @@ export default function Generate() {
 						<span>Tempo: {lastPreset ? `♩ = ${lastPreset.tempo}` : '—'}</span>
 					</div>
 
-					<div className="flex flex-row lg:flex-col gap-2">
+					{/* Desktop only: Generate/Play/Stop buttons */}
+					<div className="hidden md:flex flex-row lg:flex-col gap-2">
 						<button
 							onClick={handleGenerate}
 							className="px-4 py-2.5 bg-blue-500 text-white border-none rounded-md cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors min-h-[44px] min-w-[44px]"
 						>
 							Generate
 						</button>
-					<div className="flex flex-row gap-2">
-						<button
-							onClick={handlePlay}
-							disabled={!abc || isPlaying}
-							className={`px-4 py-2.5 text-white border-none rounded-md transition-colors min-h-[44px] min-w-[44px] ${
-								isPlaying ? 'bg-blue-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700 active:bg-green-800'
-							}`}
-							title="Play"
-						>
-							Play
-						</button>
-						<button
-							onClick={handleStop}
-							disabled={!isPlaying}
-							className={`px-4 py-2.5 text-white border-none rounded-md transition-colors min-h-[44px] min-w-[44px] ${
-								!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700 active:bg-red-800'
-							}`}
-							title="Stop"
-						>
-							Stop
-						</button>
-					</div>
+						<div className="flex flex-row gap-2">
+							<button
+								onClick={play}
+								disabled={!canPlay || isPlaying}
+								className={`px-4 py-2.5 text-white border-none rounded-md transition-colors min-h-[44px] min-w-[44px] ${
+									isPlaying ? 'bg-blue-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700 active:bg-green-800'
+								}`}
+								title="Play"
+							>
+								Play
+							</button>
+							<button
+								onClick={stop}
+								disabled={!isPlaying}
+								className={`px-4 py-2.5 text-white border-none rounded-md transition-colors min-h-[44px] min-w-[44px] ${
+									!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700 active:bg-red-800'
+								}`}
+								title="Stop"
+							>
+								Stop
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
 
+			{/* Sheet music display */}
 			<div className="w-full bg-white rounded-lg shadow-md p-2 md:p-4 overflow-auto">
 				<div className="w-full [&_svg]:w-full [&_svg]:h-auto">
 					<div className="score-wrap">
