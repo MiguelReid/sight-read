@@ -589,21 +589,21 @@ export default function Generate() {
 	}, [layoutKey]);
 
 	return (
-		<div className="p-4 md:p-8 flex flex-col lg:grid lg:grid-cols-[280px_1fr] gap-4 md:gap-8 items-start">
-			{/* Controls sidebar - simplified on mobile */}
-			<div className="no-print flex flex-col gap-4 w-full lg:w-auto">
+		<div className="generate-page p-4 md:p-8 flex flex-col lg:grid lg:grid-cols-[280px_1fr] gap-2 md:gap-8 items-start justify-end lg:justify-start">
+			{/* Controls - compact bar on mobile */}
+			<div className="no-print flex flex-col gap-2 md:gap-4 w-full lg:w-auto order-1">
 				<div className="hidden md:block">
 					<h3 className="text-xl md:text-2xl font-bold m-0">Sight Reading Practice</h3>
 				</div>
 
-				<div className="flex flex-row lg:flex-col gap-4 flex-wrap items-start">
-					<div className="flex flex-col gap-2 min-w-[140px]">
-						<label htmlFor="grade-select" className="font-semibold text-sm">Grade</label>
+				<div className="flex flex-row lg:flex-col gap-3 md:gap-4 flex-wrap items-center lg:items-start">
+					<div className="flex flex-col gap-1 min-w-[120px]">
+						<label htmlFor="grade-select" className="font-semibold text-xs md:text-sm">Grade</label>
 						<select
 							id="grade-select"
 							value={grade}
 							onChange={(e) => setGrade(parseInt(e.target.value, 10))}
-							className="p-2.5 rounded border border-gray-300 bg-white text-black min-h-[44px]"
+							className="p-2 md:p-2.5 rounded border border-gray-300 bg-white text-black min-h-[40px] md:min-h-[44px] text-sm"
 							aria-label="Select difficulty grade"
 						>
 							{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
@@ -612,9 +612,9 @@ export default function Generate() {
 						</select>
 					</div>
 
-					<div className="text-gray-600 flex flex-col gap-1 text-sm">
+					<div className="text-gray-600 flex flex-row lg:flex-col gap-2 lg:gap-1 text-xs md:text-sm">
 						<span>Key: {lastPreset ? lastPreset.key : '—'}</span>
-						<span>Tempo: {lastPreset ? `♩ = ${lastPreset.tempo}` : '—'}</span>
+						<span>Tempo: {lastPreset ? `♩=${lastPreset.tempo}` : '—'}</span>
 					</div>
 
 					{/* Desktop only: Generate/Play/Stop buttons */}
@@ -652,7 +652,7 @@ export default function Generate() {
 			</div>
 
 			{/* Sheet music display */}
-			<div className="w-full bg-white rounded-lg shadow-md p-2 md:p-4 overflow-auto">
+			<div className="w-full bg-white rounded-lg shadow-md p-2 md:p-4 overflow-auto order-2">
 				<div className="w-full [&_svg]:w-full [&_svg]:h-auto">
 					<div className="score-wrap">
 						<div ref={containerRef} className="score-surface" />

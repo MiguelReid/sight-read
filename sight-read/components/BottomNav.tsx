@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Music, Settings, Play, Square, RefreshCw } from 'lucide-react';
+import { Home, Music, Settings, Play, Square, Sparkles } from 'lucide-react';
 import { usePlayback } from '@/lib/playback';
 
 const navItems = [
@@ -45,7 +45,7 @@ export default function BottomNav() {
                             className="btmnav-btn btmnav-btn-generate"
                             title="Generate new"
                         >
-                            <RefreshCw size={20} />
+                            <Sparkles size={20} />
                         </button>
                         <button
                             onClick={play}
@@ -61,7 +61,7 @@ export default function BottomNav() {
                             className={`btmnav-btn btmnav-btn-stop ${!isPlaying ? 'btmnav-btn-disabled' : ''}`}
                             title="Stop"
                         >
-                            <Square size={18} fill="currentColor" />
+                            <Square size={20} fill="currentColor" />
                         </button>
                     </div>
                 )}
