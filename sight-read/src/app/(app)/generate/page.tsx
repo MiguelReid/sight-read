@@ -28,41 +28,41 @@ type Preset = {
 	secondaryBeats: number[];
 };
 
-type KeyDef = { label: string; acc: number }; // acc = number of sharps(+) or flats(-)
+type KeyDef = { label: string; acc: number; min: number; weight: number }; // acc = number of sharps(+) or flats(-), min = minimum grade
 
 const MAJOR_KEYS: KeyDef[] = [
-	{ label: 'C', acc: 0 },
-	{ label: 'G', acc: +1 },
-	{ label: 'D', acc: +2 },
-	{ label: 'A', acc: +3 },
-	{ label: 'E', acc: +4 },
-	{ label: 'B', acc: +5 },
-	{ label: 'F#', acc: +6 },
-	{ label: 'C#', acc: +7 },
-	{ label: 'F', acc: -1 },
-	{ label: 'Bb', acc: -2 },
-	{ label: 'Eb', acc: -3 },
-	{ label: 'Ab', acc: -4 },
-	{ label: 'Db', acc: -5 },
-	{ label: 'Gb', acc: -6 },
-	{ label: 'Cb', acc: -7 },
+	{ label: 'C', acc: 0, min: 1, weight: 3.0 },
+	{ label: 'G', acc: +1, min: 1, weight: 3.0 },
+	{ label: 'F', acc: -1, min: 1, weight: 3.0 },
+	{ label: 'D', acc: +2, min: 2, weight: 3.0 },
+	{ label: 'Bb', acc: -2, min: 2, weight: 3.0 },
+	{ label: 'A', acc: +3, min: 3, weight: 2.7 },
+	{ label: 'Eb', acc: -3, min: 3, weight: 2.7 },
+	{ label: 'E', acc: +4, min: 4, weight: 2.4 },
+	{ label: 'Ab', acc: -4, min: 4, weight: 2.4 },
+	{ label: 'B', acc: +5, min: 4, weight: 2.0 },
+	{ label: 'Db', acc: -5, min: 4, weight: 2.0 },
+	{ label: 'F#', acc: +6, min: 5, weight: 1.5 },
+	{ label: 'Gb', acc: -6, min: 5, weight: 1.5 },
+	{ label: 'C#', acc: +7, min: 6, weight: 1.0 },
+	{ label: 'Cb', acc: -7, min: 6, weight: 1.0 },
 ];
 const MINOR_KEYS: KeyDef[] = [
-	{ label: 'Am', acc: 0 },
-	{ label: 'Em', acc: +1 },
-	{ label: 'Bm', acc: +2 },
-	{ label: 'F#m', acc: +3 },
-	{ label: 'C#m', acc: +4 },
-	{ label: 'G#m', acc: +5 },
-	{ label: 'D#m', acc: +6 },
-	{ label: 'A#m', acc: +7 },
-	{ label: 'Dm', acc: -1 },
-	{ label: 'Gm', acc: -2 },
-	{ label: 'Cm', acc: -3 },
-	{ label: 'Fm', acc: -4 },
-	{ label: 'Bbm', acc: -5 },
-	{ label: 'Ebm', acc: -6 },
-	{ label: 'Abm', acc: -7 },
+	{ label: 'Am', acc: 0, min: 2, weight: 3.0 },
+	{ label: 'Em', acc: +1, min: 2, weight: 3.0 },
+	{ label: 'Dm', acc: -1, min: 2, weight: 3.0 },
+	{ label: 'Bm', acc: +2, min: 3, weight: 3.0 },
+	{ label: 'Gm', acc: -2, min: 3, weight: 3.0 },
+	{ label: 'F#m', acc: +3, min: 3, weight: 2.7 },
+	{ label: 'Cm', acc: -3, min: 3, weight: 2.7 },
+	{ label: 'C#m', acc: +4, min: 4, weight: 2.4 },
+	{ label: 'Fm', acc: -4, min: 4, weight: 2.4 },
+	{ label: 'G#m', acc: +5, min: 4, weight: 2.0 },
+	{ label: 'Bbm', acc: -5, min: 4, weight: 2.0 },
+	{ label: 'D#m', acc: +6, min: 5, weight: 1.5 },
+	{ label: 'Ebm', acc: -6, min: 5, weight: 1.5 },
+	{ label: 'A#m', acc: +7, min: 6, weight: 1.0 },
+	{ label: 'Abm', acc: -7, min: 6, weight: 1.0 },
 ];
 const KEY_DEFS: KeyDef[] = [...MAJOR_KEYS, ...MINOR_KEYS];
 
@@ -108,14 +108,12 @@ function pickWeightedRandom<T>(items: T[], getWeight: (t: T) => number): T {
 }
 
 function pickKeyForGrade(grade: number): KeyDef {
-	const g01 = (clamp(grade, 1, 8) - 1) / 7; // 0..1
-	return pickWeightedRandom(KEY_DEFS, (k) => {
-		const accAbs = Math.abs(k.acc) / 7;           // 0..1
-		const soft = 1 / (1 + accAbs * 7);            // favors 0 accidentals
-		const hard = 0.4 + accAbs;                    // favors many accidentals
-		const weight = (1 - g01) * soft + g01 * hard; // blend by grade
-		return weight + 0.01; // ensure non-zero
-	});
+	const g = clamp(grade, 1, 8);
+	// Filter to only keys available at this grade (like time signatures)
+	const avail = KEY_DEFS.filter(k => g >= k.min);
+	// Weight by the key's base weight, with a slight boost for keys that have been available longer
+	const choice = pickWeightedRandom(avail, k => k.weight * (1 + 0.1 * Math.max(0, g - k.min)));
+	return choice;
 }
 
 function pickMeterForGrade(grade: number): { meter: string; num: number; den: number; strongBeats: number[]; secondaryBeats: number[] } {
