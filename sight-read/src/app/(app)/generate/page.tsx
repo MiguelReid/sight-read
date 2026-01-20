@@ -522,6 +522,7 @@ export default function Generate() {
 	const [lastPreset, setLastPreset] = useState<Preset | null>(null);
 	const [visualObj, setVisualObj] = useState<unknown | null>(null);
 	const [layoutConfig, setLayoutConfig] = useState({ totalBars: 18, barsPerLine: 6 });
+	const [bpm, setBpm] = useState<number>(72);
 	
 	// Use shared playback service
 	const { isPlaying, canPlay, play, stop, setMusic } = usePlayback();
@@ -560,19 +561,20 @@ export default function Generate() {
 		if (visualObj && lastPreset) {
 			setMusic({
 				visualObj,
-				tempo: lastPreset.tempo,
+				tempo: bpm,
 				meterNum: lastPreset.meterNum,
 				meterDen: lastPreset.meterDen,
 			});
 		} else {
 			setMusic(null);
 		}
-	}, [visualObj, lastPreset, setMusic]);
+	}, [visualObj, lastPreset, bpm, setMusic]);
 
 	const handleGenerate = useCallback(() => {
 		stop(); // Stop any current playback
 		const p = getPreset(grade, layoutConfig.totalBars, layoutConfig.barsPerLine);
 		setLastPreset(p);
+		setBpm(p.tempo);
 		setAbc(generateAbcForPreset(p));
 	}, [grade, layoutConfig, stop]);
 
@@ -587,27 +589,66 @@ export default function Generate() {
 	}, [layoutKey]);
 
 	return (
-		<div className="generate-page p-4 md:p-8 flex flex-col lg:grid lg:grid-cols-[280px_1fr] gap-2 md:gap-8 items-start justify-end lg:justify-start">
+		<div className="generate-page p-4 md:p-6 lg:p-8">
 			{/* Controls - compact bar on mobile */}
-			<div className="no-print flex flex-col gap-2 md:gap-4 w-full lg:w-auto order-1">
-				<div className="flex flex-row lg:flex-col gap-3 md:gap-4 flex-wrap items-center lg:items-start">
-					<div className="flex flex-col gap-1 min-w-[120px]">
-						<select
-							id="grade-select"
-							value={grade}
-							onChange={(e) => setGrade(parseInt(e.target.value, 10))}
-							className="p-2 md:p-2.5 rounded border border-gray-300 bg-white text-black min-h-[40px] md:min-h-[44px] text-sm"
-							aria-label="Select difficulty grade"
-						>
-							{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
-								<option key={g} value={g}>Grade {g}</option>
-							))}
-						</select>
+			<div className="no-print settings-panel order-1">
+				<div className="flex flex-col gap-4">
+					<div className="flex flex-row flex-wrap items-center gap-3 md:gap-4">
+						<div className="flex flex-col gap-1 min-w-[120px]">
+							<select
+								id="grade-select"
+								value={grade}
+								onChange={(e) => setGrade(parseInt(e.target.value, 10))}
+								className="p-2 md:p-2.5 rounded border border-gray-300 bg-white text-black min-h-[40px] md:min-h-[44px] text-sm"
+								aria-label="Select difficulty grade"
+							>
+								{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
+									<option key={g} value={g}>Grade {g}</option>
+								))}
+							</select>
+						</div>
+
+						<div className="text-gray-600 flex flex-col gap-1 text-xs md:text-sm">
+							<span>Key: {lastPreset ? lastPreset.key : '—'}</span>
+						</div>
 					</div>
 
-					<div className="text-gray-600 flex flex-row lg:flex-col gap-2 lg:gap-1 text-xs md:text-sm">
-						<span>Key: {lastPreset ? lastPreset.key : '—'}</span>
-						<span>Tempo: {lastPreset ? `♩=${lastPreset.tempo}` : '—'}</span>
+					<div className="flex flex-row flex-wrap items-center gap-2">
+						<div className="bpm-control">
+							<button
+								type="button"
+								className="bpm-icon"
+								onClick={() => lastPreset && setBpm(lastPreset.tempo)}
+								aria-label="Reset tempo"
+								title="Reset tempo to generated value"
+							>
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path
+										d="M9 3h6v2h-2v2.2l2.7 2.7a6.5 6.5 0 1 1-9.2 9.2 6.5 6.5 0 0 1 3.5-11.1V5H9V3zm3 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 0 0 0-8.6zm0 1.6c.4 0 .8.3.8.8v2.3l1.2 1.2a.8.8 0 1 1-1.1 1.1l-1.4-1.4a.8.8 0 0 1-.3-.6v-2.6c0-.4.4-.8.8-.8z"
+									/>
+								</svg>
+							</button>
+							<button
+								type="button"
+								className="bpm-step"
+								onClick={() => setBpm(prev => clamp(prev - 2, 40, 240))}
+								aria-label="Decrease tempo"
+							>
+								-
+							</button>
+							<div className="bpm-value" aria-live="polite">
+								{bpm}
+							</div>
+							<button
+								type="button"
+								className="bpm-step"
+								onClick={() => setBpm(prev => clamp(prev + 2, 40, 240))}
+								aria-label="Increase tempo"
+							>
+								+
+							</button>
+							<span className="bpm-label">BPM</span>
+						</div>
 					</div>
 
 					{/* Desktop only: Generate/Play/Stop buttons */}
@@ -645,7 +686,7 @@ export default function Generate() {
 			</div>
 
 			{/* Sheet music display */}
-			<div className="w-full bg-white rounded-lg shadow-md p-2 md:p-4 overflow-auto order-2">
+			<div className="w-full min-w-0 bg-white rounded-lg shadow-md p-2 md:p-4 overflow-auto order-2">
 				<div className="w-full [&_svg]:w-full [&_svg]:h-auto">
 					<div className="score-wrap">
 						<div ref={containerRef} className="score-surface" />
