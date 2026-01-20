@@ -88,34 +88,97 @@ body {
 /* Generate page fills available space */
 .generate-page {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
-  gap: clamp(8px, 2vw, 24px);
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  /* On mobile: use safe area for notch/camera + extra padding */
+  padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+}
+
+/* Mobile: sheet music grows to fill space from bottom */
+@media (max-width: 767px) {
+  .generate-page {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 24px);
+    justify-content: flex-end; /* push content toward bottom */
+  }
+  
+  .generate-page > *:last-child {
+    flex: 1; /* sheet music container grows */
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .generate-page > *:last-child > * {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .generate-page {
+    display: grid;
+    grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+    padding-top: 25px; /* space below top nav bar */
+  }
+}
+
+@media (min-width: 1024px) {
+  .generate-page {
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 28px;
+  }
 }
 
 .settings-panel {
-  background: #f8fafc;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 12px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06), 0 0 1px rgba(15, 23, 42, 0.1);
+  min-width: 0;
+  overflow: hidden;
+  flex-shrink: 0; /* don't shrink on mobile */
+}
+
+/* On mobile, settings panel is a compact horizontal bar */
+@media (max-width: 767px) {
+  .settings-panel {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+  }
 }
 
 .bpm-control {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 4px 8px;
   color: #0f172a;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .bpm-control {
+    gap: 6px;
+    padding: 6px 10px;
+  }
 }
 
 .bpm-icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
   border: none;
   background: #e2e8f0;
   border-radius: 999px;
@@ -126,27 +189,50 @@ body {
   transition: background 0.15s ease;
 }
 
+@media (min-width: 768px) {
+  .bpm-icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+
 .bpm-icon:hover {
-  background: #cbd5f5;
+  background: #cbd5e1;
 }
 
 .bpm-icon svg {
-  width: 16px;
-  height: 16px;
-  fill: #0f172a;
+  width: 14px;
+  height: 14px;
+  fill: #475569;
+}
+
+@media (min-width: 768px) {
+  .bpm-icon svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 .bpm-step {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
   border-radius: 50%;
-  border: 1px solid #cbd5f5;
+  border: 1px solid #cbd5e1;
   background: #f8fafc;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
-  color: #1e293b;
+  color: #334155;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+@media (min-width: 768px) {
+  .bpm-step {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
 }
 
 .bpm-step:hover {
@@ -154,18 +240,38 @@ body {
   border-color: #94a3b8;
 }
 
+.bpm-step:active {
+  background: #cbd5e1;
+}
+
 .bpm-value {
-  min-width: 32px;
+  min-width: 28px;
   text-align: center;
   font-weight: 600;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
+  color: #1e293b;
+}
+
+@media (min-width: 768px) {
+  .bpm-value {
+    min-width: 32px;
+    font-size: 14px;
+  }
 }
 
 .bpm-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   color: #64748b;
+  margin-left: 2px;
+}
+
+@media (min-width: 768px) {
+  .bpm-label {
+    font-size: 11px;
+  }
 }
 
 /* ===================
@@ -189,7 +295,27 @@ body {
   height: 64px;
   max-width: 600px;
   margin: 0 auto;
-  padding: 0 8px;
+  padding: 0 16px;
+}
+
+/* When on generate page with playback controls */
+.btmnav-inner-spread {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  justify-items: center;
+  align-items: center;
+}
+
+/* Center the nav item in the left grid cell */
+.btmnav-inner-spread .btmnav-item {
+  justify-self: center;
+}
+
+/* Playback controls stay in their auto-sized cell on the right */
+.btmnav-inner-spread .btmnav-playback {
+  justify-self: end;
+  padding-left: 12px;
+  border-left: 1px solid #e5e7eb;
 }
 
 .btmnav-item {
@@ -223,18 +349,15 @@ body {
 .btmnav-playback {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-left: 8px;
-  padding-left: 12px;
-  border-left: 1px solid #e5e7eb;
+  gap: 10px;
 }
 
 .btmnav-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 35px;
-  height: 35px;
+  width: 42px;
+  height: 42px;
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -268,6 +391,87 @@ body {
 .btmnav-btn-disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* BPM Control in BottomNav */
+.btmnav-btn-bpm {
+  background: #6366f1;
+  color: white;
+}
+.btmnav-btn-bpm:hover {
+  background: #4f46e5;
+}
+
+.btmnav-bpm-wrapper {
+  position: relative;
+}
+
+.btmnav-bpm-popup {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+}
+
+.btmnav-bpm-popup::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: white;
+}
+
+.btmnav-bpm-step {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  background: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btmnav-bpm-step:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.btmnav-bpm-step:active {
+  background: #cbd5e1;
+}
+
+.btmnav-bpm-value {
+  min-width: 44px;
+  padding: 6px 8px;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: #1e293b;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btmnav-bpm-value:hover {
+  background: #e2e8f0;
 }
 
 /* Hide UI when printing; keep the page clean */

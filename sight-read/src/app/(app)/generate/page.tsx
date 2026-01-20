@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import abcjs from 'abcjs';
+import { Clock } from 'lucide-react';
 import { usePlayback, useGenerateListener } from '@/lib/playback';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
@@ -522,10 +523,9 @@ export default function Generate() {
 	const [lastPreset, setLastPreset] = useState<Preset | null>(null);
 	const [visualObj, setVisualObj] = useState<unknown | null>(null);
 	const [layoutConfig, setLayoutConfig] = useState({ totalBars: 18, barsPerLine: 6 });
-	const [bpm, setBpm] = useState<number>(72);
 	
-	// Use shared playback service
-	const { isPlaying, canPlay, play, stop, setMusic } = usePlayback();
+	// Use shared playback service (BPM is now managed there)
+	const { isPlaying, canPlay, play, stop, setMusic, bpm, setBpm, resetBpm } = usePlayback();
 
 	useEffect(() => {
 		const handleResize = () => {
@@ -561,20 +561,19 @@ export default function Generate() {
 		if (visualObj && lastPreset) {
 			setMusic({
 				visualObj,
-				tempo: bpm,
+				tempo: lastPreset.tempo,
 				meterNum: lastPreset.meterNum,
 				meterDen: lastPreset.meterDen,
 			});
 		} else {
 			setMusic(null);
 		}
-	}, [visualObj, lastPreset, bpm, setMusic]);
+	}, [visualObj, lastPreset, setMusic]);
 
 	const handleGenerate = useCallback(() => {
 		stop(); // Stop any current playback
 		const p = getPreset(grade, layoutConfig.totalBars, layoutConfig.barsPerLine);
 		setLastPreset(p);
-		setBpm(p.tempo);
 		setAbc(generateAbcForPreset(p));
 	}, [grade, layoutConfig, stop]);
 
@@ -589,104 +588,97 @@ export default function Generate() {
 	}, [layoutKey]);
 
 	return (
-		<div className="generate-page p-4 md:p-6 lg:p-8">
-			{/* Controls - compact bar on mobile */}
-			<div className="no-print settings-panel order-1">
-				<div className="flex flex-col gap-4">
-					<div className="flex flex-row flex-wrap items-center gap-3 md:gap-4">
-						<div className="flex flex-col gap-1 min-w-[120px]">
-							<select
-								id="grade-select"
-								value={grade}
-								onChange={(e) => setGrade(parseInt(e.target.value, 10))}
-								className="p-2 md:p-2.5 rounded border border-gray-300 bg-white text-black min-h-[40px] md:min-h-[44px] text-sm"
-								aria-label="Select difficulty grade"
-							>
-								{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
-									<option key={g} value={g}>Grade {g}</option>
-								))}
-							</select>
-						</div>
+		<div className="generate-page p-3 md:p-5 lg:p-8">
+			{/* Settings Panel - top bar on mobile, left side on desktop */}
+			<div className="no-print settings-panel">
+				{/* Grade selector */}
+				<select
+					id="grade-select"
+					value={grade}
+					onChange={(e) => setGrade(parseInt(e.target.value, 10))}
+					className="p-2 md:p-2.5 rounded-lg border border-gray-300 bg-white text-black text-sm min-w-[100px] md:w-full"
+					aria-label="Select difficulty grade"
+				>
+					{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
+						<option key={g} value={g}>Grade {g}</option>
+					))}
+				</select>
 
-						<div className="text-gray-600 flex flex-col gap-1 text-xs md:text-sm">
-							<span>Key: {lastPreset ? lastPreset.key : '—'}</span>
-						</div>
-					</div>
+				{/* Key display */}
+				<div className="text-gray-600 text-xs md:text-sm whitespace-nowrap">
+					Key: <span className="font-medium text-gray-800">{lastPreset ? lastPreset.key : '—'}</span>
+				</div>
 
-					<div className="flex flex-row flex-wrap items-center gap-2">
-						<div className="bpm-control">
-							<button
-								type="button"
-								className="bpm-icon"
-								onClick={() => lastPreset && setBpm(lastPreset.tempo)}
-								aria-label="Reset tempo"
-								title="Reset tempo to generated value"
-							>
-								<svg viewBox="0 0 24 24" aria-hidden="true">
-									<path
-										d="M9 3h6v2h-2v2.2l2.7 2.7a6.5 6.5 0 1 1-9.2 9.2 6.5 6.5 0 0 1 3.5-11.1V5H9V3zm3 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 0 0 0-8.6zm0 1.6c.4 0 .8.3.8.8v2.3l1.2 1.2a.8.8 0 1 1-1.1 1.1l-1.4-1.4a.8.8 0 0 1-.3-.6v-2.6c0-.4.4-.8.8-.8z"
-									/>
-								</svg>
-							</button>
-							<button
-								type="button"
-								className="bpm-step"
-								onClick={() => setBpm(prev => clamp(prev - 2, 40, 240))}
-								aria-label="Decrease tempo"
-							>
-								-
-							</button>
-							<div className="bpm-value" aria-live="polite">
-								{bpm}
-							</div>
-							<button
-								type="button"
-								className="bpm-step"
-								onClick={() => setBpm(prev => clamp(prev + 2, 40, 240))}
-								aria-label="Increase tempo"
-							>
-								+
-							</button>
-							<span className="bpm-label">BPM</span>
-						</div>
-					</div>
-
-					{/* Desktop only: Generate/Play/Stop buttons */}
-					<div className="hidden md:flex flex-row lg:flex-col gap-2">
+				{/* Desktop only: BPM control */}
+				<div className="hidden md:block mt-2">
+					<div className="bpm-control">
 						<button
-							onClick={handleGenerate}
-							className="px-4 py-2.5 bg-blue-500 text-white border-none rounded-md cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors min-h-[44px] min-w-[44px]"
+							type="button"
+							className="bpm-icon"
+							onClick={resetBpm}
+							aria-label="Reset tempo"
+							title="Reset tempo to generated value"
 						>
-							Generate
+							<Clock size={18} />
 						</button>
-						<div className="flex flex-row gap-2">
-							<button
-								onClick={play}
-								disabled={!canPlay || isPlaying}
-								className={`px-4 py-2.5 text-white border-none rounded-md transition-colors min-h-[44px] min-w-[44px] ${
-									isPlaying ? 'bg-blue-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700 active:bg-green-800'
-								}`}
-								title="Play"
-							>
-								Play
-							</button>
-							<button
-								onClick={stop}
-								disabled={!isPlaying}
-								className={`px-4 py-2.5 text-white border-none rounded-md transition-colors min-h-[44px] min-w-[44px] ${
-									!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700 active:bg-red-800'
-								}`}
-								title="Stop"
-							>
-								Stop
-							</button>
+						<button
+							type="button"
+							className="bpm-step"
+							onClick={() => setBpm(bpm - 2)}
+							aria-label="Decrease tempo"
+						>
+							-
+						</button>
+						<div className="bpm-value" aria-live="polite">
+							{bpm}
 						</div>
+						<button
+							type="button"
+							className="bpm-step"
+							onClick={() => setBpm(bpm + 2)}
+							aria-label="Increase tempo"
+						>
+							+
+						</button>
+						<span className="bpm-label">BPM</span>
+					</div>
+				</div>
+
+				{/* Desktop only: Generate/Play/Stop buttons */}
+				<div className="hidden md:flex flex-col gap-2 pt-3 mt-3 border-t border-gray-200">
+					<button
+						onClick={handleGenerate}
+						className="w-full px-3 py-2 bg-blue-500 text-white text-sm font-medium border-none rounded-lg cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors"
+					>
+						Generate
+					</button>
+					<div className="flex gap-2">
+						<button
+							onClick={play}
+							disabled={!canPlay || isPlaying}
+							className={`flex-1 px-3 py-2 text-white text-sm font-medium border-none rounded-lg transition-colors ${
+								isPlaying ? 'bg-green-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700 active:bg-green-800'
+							}`}
+							title="Play"
+						>
+							Play
+						</button>
+						<button
+							onClick={stop}
+							disabled={!isPlaying}
+							className={`flex-1 px-3 py-2 text-white text-sm font-medium border-none rounded-lg transition-colors ${
+								!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700 active:bg-red-800'
+							}`}
+							title="Stop"
+						>
+							Stop
+						</button>
 					</div>
 				</div>
 			</div>
 
 			{/* Sheet music display */}
-			<div className="w-full min-w-0 bg-white rounded-lg shadow-md p-2 md:p-4 overflow-auto order-2">
+			<div className="min-w-0 bg-white rounded-xl shadow-sm p-2 md:p-4 overflow-auto border border-gray-100">
 				<div className="w-full [&_svg]:w-full [&_svg]:h-auto">
 					<div className="score-wrap">
 						<div ref={containerRef} className="score-surface" />

@@ -19,6 +19,7 @@ interface SynthLike {
 
 type PlaybackListener = (state: PlaybackState) => void;
 type GenerateListener = () => void;
+type BpmListener = (bpm: number) => void;
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -40,8 +41,11 @@ let audioCtx: AudioContext | null = null;
 let synth: SynthLike | null = null;
 let currentMusic: MusicData | null = null;
 let isPlaying = false;
+let currentBpm = 72;
+let generatedBpm = 72; // Store the original generated tempo
 const listeners = new Set<PlaybackListener>();
 const generateListeners = new Set<GenerateListener>();
+const bpmListeners = new Set<BpmListener>();
 
 function notifyListeners() {
   const state: PlaybackState = { isPlaying, canPlay: currentMusic !== null };
@@ -58,8 +62,37 @@ function subscribe(listener: PlaybackListener): () => void {
   return () => listeners.delete(listener);
 }
 
+function notifyBpmListeners() {
+  bpmListeners.forEach(listener => listener(currentBpm));
+}
+
+function subscribeBpm(listener: BpmListener): () => void {
+  bpmListeners.add(listener);
+  listener(currentBpm);
+  return () => bpmListeners.delete(listener);
+}
+
+export function getBpm(): number {
+  return currentBpm;
+}
+
+export function setBpm(bpm: number): void {
+  currentBpm = Math.max(40, Math.min(240, bpm));
+  notifyBpmListeners();
+}
+
+export function resetBpm(): void {
+  currentBpm = generatedBpm;
+  notifyBpmListeners();
+}
+
 export function setMusic(music: MusicData | null): void {
   currentMusic = music;
+  if (music) {
+    generatedBpm = music.tempo;
+    currentBpm = music.tempo;
+    notifyBpmListeners();
+  }
   notifyListeners();
 }
 
@@ -86,9 +119,9 @@ export async function play(): Promise<void> {
       try { synth.stop(); } catch { }
     }
 
-    const { visualObj, tempo, meterNum, meterDen } = currentMusic;
+    const { visualObj, meterNum, meterDen } = currentMusic;
     const quarterEquiv = (4 * meterNum) / meterDen;
-    const msPerMeasure = Math.round((60000 / tempo) * quarterEquiv);
+    const msPerMeasure = Math.round((60000 / currentBpm) * quarterEquiv);
 
     await synth.init({
       visualObj,
@@ -137,12 +170,17 @@ export interface UsePlaybackReturn extends PlaybackState {
   stop: () => void;
   setMusic: (music: MusicData | null) => void;
   requestGenerate: () => void;
+  bpm: number;
+  setBpm: (bpm: number) => void;
+  resetBpm: () => void;
 }
 
 export function usePlayback(): UsePlaybackReturn {
   const [state, setState] = useState<PlaybackState>(getState);
+  const [bpm, setBpmState] = useState<number>(getBpm);
 
   useEffect(() => subscribe(setState), []);
+  useEffect(() => subscribeBpm(setBpmState), []);
 
   return {
     ...state,
@@ -150,6 +188,9 @@ export function usePlayback(): UsePlaybackReturn {
     stop,
     setMusic,
     requestGenerate,
+    bpm,
+    setBpm,
+    resetBpm,
   };
 }
 
