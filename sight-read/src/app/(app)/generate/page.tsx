@@ -619,7 +619,7 @@ export default function Generate() {
 							aria-label="Reset tempo"
 							title="Reset tempo to generated value"
 						>
-							<Clock size={18} />
+							<Clock size={20} />
 						</button>
 						<button
 							type="button"

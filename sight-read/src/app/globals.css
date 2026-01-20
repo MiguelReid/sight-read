@@ -203,7 +203,7 @@ body {
 .bpm-icon svg {
   width: 14px;
   height: 14px;
-  fill: #475569;
+  stroke: #475569;
 }
 
 @media (min-width: 768px) {
