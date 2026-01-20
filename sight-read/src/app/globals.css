@@ -88,6 +88,84 @@ body {
 /* Generate page fills available space */
 .generate-page {
   flex: 1;
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
+  gap: clamp(8px, 2vw, 24px);
+  align-items: start;
+}
+
+.settings-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.bpm-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #0f172a;
+}
+
+.bpm-icon {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: #e2e8f0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.bpm-icon:hover {
+  background: #cbd5f5;
+}
+
+.bpm-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: #0f172a;
+}
+
+.bpm-step {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+  font-size: 16px;
+  line-height: 1;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.bpm-step:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.bpm-value {
+  min-width: 32px;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bpm-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #64748b;
 }
 
 /* ===================
