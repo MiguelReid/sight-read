@@ -138,26 +138,23 @@ type DurationPlan = {
 };
 
 function planDurations(effComplexity: number): DurationPlan {
-	// All grades use 1/8 as base unit for consistent notation
-	// Higher complexity adds shorter notes but always keeps longer values present
-
-	// Base weights that ensure musical variety at all levels
-	const halfW = 0.18;              // Half note (4 units) - always present for phrasing
-	const dottedQuarterW = 0.12;     // Dotted quarter (3 units) - adds rhythmic interest
-	const quarterW = 0.28;           // Quarter note (2 units) - backbone of most music
-	const eighthW = 0.22 - 0.08 * effComplexity;  // Eighth note - decreases slightly as complexity rises
+	// Base weights for variety
+	const halfW = 0.18;          
+	const dottedQuarterW = 0.12;    
+	const quarterW = 0.28;       
+	const eighthW = 0.22 - 0.08 * effComplexity;
 	const sixteenthW = effComplexity >= 0.5 ? 0.06 * effComplexity : 0; // Only appears at higher grades
 
-	// Rests - musical breathing room (more present now)
+	// Rests
 	const halfRestW = 0.06;
 	const quarterRestW = 0.08;
 	const eighthRestW = 0.04;
 
 	const durations: Duration[] = [
-		{ token: '4', units: 4, weight: halfW },           // Half note
-		{ token: '3', units: 3, weight: dottedQuarterW }, // Dotted quarter
-		{ token: '2', units: 2, weight: quarterW },       // Quarter note
-		{ token: '', units: 1, weight: eighthW },         // Eighth note
+		{ token: '4', units: 4, weight: halfW },         
+		{ token: '3', units: 3, weight: dottedQuarterW },
+		{ token: '2', units: 2, weight: quarterW },      
+		{ token: '', units: 1, weight: eighthW },       
 		{ token: '4', units: 4, weight: halfRestW, isRest: true },
 		{ token: '2', units: 2, weight: quarterRestW, isRest: true },
 		{ token: '', units: 1, weight: eighthRestW, isRest: true },
@@ -175,38 +172,81 @@ function planDurations(effComplexity: number): DurationPlan {
 	};
 }
 
-const CHORD_PROGRESSIONS: ChordDegree[][] = [
-	[1, 4, 5, 1],
-	[1, 5, 1],
-	[1, 6, 4, 5],
-	[1, 2, 5, 1],
-	[1, 4, 2, 5],
-];
+// Each progression has a weight and a minimum grade (like keys/meters)
+// Chords: 1=I, 2=ii, 3=iii, 4=IV, 5=V, 6=vi, 7=vii°
+type ProgressionDef = { prog: ChordDegree[]; min: number; weight: number };
 
-function allowedChordDegrees(grade: number): ChordDegree[] {
-	if (grade <= 3) return [1, 4, 5];
-	if (grade <= 5) return [1, 2, 4, 5, 6];
-	return [1, 2, 3, 4, 5, 6];
-}
+const CHORD_PROGRESSIONS: ProgressionDef[] = [
+	// Basic progressions (available early)
+	{ prog: [1, 5, 1], min: 1, weight: 3.0 },           // I-V-I (simplest)
+	{ prog: [1, 4, 1], min: 1, weight: 2.5 },           // I-IV-I (plagal feel)
+	{ prog: [1, 4, 5, 1], min: 1, weight: 3.5 },        // I-IV-V-I (classic)
+	{ prog: [1, 5, 4, 1], min: 1, weight: 2.0 },        // I-V-IV-I (rock)
+	{ prog: [1, 4, 5], min: 1, weight: 2.5 },           // I-IV-V (open ending)
+	{ prog: [4, 5, 1], min: 1, weight: 2.0 },           // IV-V-I (approach)
+	
+	// Add ii chord (grade 2+)
+	{ prog: [1, 2, 5, 1], min: 2, weight: 2.8 },        // I-ii-V-I
+	{ prog: [1, 4, 2, 5], min: 2, weight: 2.5 },        // I-IV-ii-V
+	{ prog: [2, 5, 1], min: 2, weight: 2.2 },           // ii-V-I (jazz essential)
+	{ prog: [1, 2, 4, 5], min: 2, weight: 2.0 },        // I-ii-IV-V
+	
+	// Add vi chord (grade 2+)
+	{ prog: [1, 6, 4, 5], min: 2, weight: 3.0 },        // I-vi-IV-V (50s)
+	{ prog: [1, 5, 6, 4], min: 2, weight: 2.8 },        // I-V-vi-IV (pop)
+	{ prog: [6, 4, 1, 5], min: 2, weight: 2.5 },        // vi-IV-I-V (modern pop)
+	{ prog: [1, 6, 2, 5], min: 2, weight: 2.2 },        // I-vi-ii-V (circle)
+	
+	// More complex (grade 3+)
+	{ prog: [1, 4, 6, 5], min: 3, weight: 2.0 },        // I-IV-vi-V
+	{ prog: [6, 2, 5, 1], min: 3, weight: 2.2 },        // vi-ii-V-I
+	{ prog: [1, 6, 4, 2], min: 3, weight: 1.8 },        // I-vi-IV-ii
+	{ prog: [4, 1, 5, 6], min: 3, weight: 1.5 },        // IV-I-V-vi
+	
+	// Add iii chord (grade 4+)
+	{ prog: [1, 3, 4, 5], min: 4, weight: 1.8 },        // I-iii-IV-V
+	{ prog: [1, 3, 6, 4], min: 4, weight: 1.5 },        // I-iii-vi-IV
+	{ prog: [3, 6, 2, 5], min: 4, weight: 1.5 },        // iii-vi-ii-V (descending 3rds)
+	{ prog: [1, 5, 3, 4], min: 4, weight: 1.2 },        // I-V-iii-IV
+	
+	// Advanced (grade 5+)
+	{ prog: [1, 4, 3, 6], min: 5, weight: 1.2 },        // I-IV-iii-vi
+	{ prog: [6, 3, 4, 1], min: 5, weight: 1.0 },        // vi-iii-IV-I
+	{ prog: [2, 3, 4, 5], min: 5, weight: 1.0 },        // ii-iii-IV-V (ascending)
+	
+	// Include vii° (grade 6+) - rare but adds color
+	{ prog: [1, 7, 1], min: 6, weight: 0.8 },           // I-vii°-I (neighbor)
+	{ prog: [3, 6, 7, 1], min: 6, weight: 0.6 },        // iii-vi-vii°-I
+	{ prog: [1, 4, 7, 3], min: 6, weight: 0.5 },        // I-IV-vii°-iii
+];
 
 function buildChordPlan(bars: number, grade: number): ChordDegree[] {
 	if (bars <= 1) return [1];
+	
+	// Always end with V-I cadence
 	const cadential: ChordDegree[] = bars >= 2 ? [5, 1] : [1];
-	const allowed = allowedChordDegrees(grade);
-	const availableProgressions = CHORD_PROGRESSIONS.filter((prog) => prog.every(d => allowed.includes(d)));
-	const progressions = availableProgressions.length ? availableProgressions : [[1, 5, 1]];
-
+	const g = clamp(grade, 1, 8);
+	
+	// Available progressions at this grade
+	const available = CHORD_PROGRESSIONS.filter(p => g >= p.min);
+	
 	const degrees: ChordDegree[] = [];
 	const targetLength = Math.max(0, bars - cadential.length);
+	
 	while (degrees.length < targetLength) {
-		const next = pickWeightedRandom(progressions, (prog) => prog.length <= 3 ? 1.2 : 1);
-		degrees.push(...next);
+		// Pick a progression with weighted probability
+		const next = pickWeightedRandom(available, p => {
+			const familiarityBonus = 1 + 0.1 * Math.max(0, g - p.min);
+			return p.weight * familiarityBonus;
+		});
+		degrees.push(...next.prog);
 	}
 
 	return [...degrees.slice(0, targetLength), ...cadential].slice(0, bars);
 }
 
 function scaleDistance(scale: string[], from: string, to: string): number {
+	// Shortest distance between 2 notes (either upwards or downwards)
 	const fromIdx = scale.indexOf(from.toUpperCase());
 	const toIdx = scale.indexOf(to.toUpperCase());
 	if (fromIdx === -1 || toIdx === -1) return 3;
@@ -215,6 +255,7 @@ function scaleDistance(scale: string[], from: string, to: string): number {
 	return Math.min(forward, backward);
 }
 
+// Want to favour small steps to make it sound more musical
 function pickMelodyLetter(
 	scaleLetters: string[],
 	preferredLetters: string[],
@@ -415,9 +456,28 @@ function makeLeftHandBars(
 	const out: string[] = [];
 	for (let b = 0; b < bars; b++) {
 		const chordLetters = triadForDegree(chordDegrees[b] ?? 1, tonicLetter);
-		const pickChordNote = () => pickNoteFromPoolByLetter(notePool, pickSpecificChordTone(chordLetters, 'root'), true)
-			|| pickNoteFromPoolByLetter(notePool, chordLetters[0], true)
-			|| notePool[Math.floor(Math.random() * notePool.length)];
+		
+		// Pick chord tones with weighted probability: root most common, then fifth, then third
+		// This creates a more musical bass line while still allowing variety
+		const pickChordNote = () => {
+			const toneWeights: [string, number][] = [
+				[chordLetters[0], 3.0],  // Root - most common for bass
+				[chordLetters[2], 1.5],  // Fifth - good for bass movement
+				[chordLetters[1], 0.8],  // Third - occasional color
+			];
+			const totalWeight = toneWeights.reduce((sum, [, w]) => sum + w, 0);
+			let r = Math.random() * totalWeight;
+			let chosenLetter = chordLetters[0];
+			for (const [letter, weight] of toneWeights) {
+				r -= weight;
+				if (r <= 0) {
+					chosenLetter = letter;
+					break;
+				}
+			}
+			return pickNoteFromPoolByLetter(notePool, chosenLetter, true)
+				|| notePool[Math.floor(Math.random() * notePool.length)];
+		};
 
 		if (style === 'drone') {
 			// Grade 3: whole bar sustained note
@@ -426,27 +486,28 @@ function makeLeftHandBars(
 		}
 
 		if (style === 'halves') {
-			// Grade 4: use half notes and quarter notes with some rests
+			// Grade 4: prefer longer notes - half notes dominant, some quarters
 			const lhDurations: Duration[] = [
-				{ token: '4', units: 4, weight: 0.35 },  // Half note
-				{ token: '2', units: 2, weight: 0.40 },  // Quarter note
-				{ token: '4', units: 4, weight: 0.10, isRest: true },  // Half rest
-				{ token: '2', units: 2, weight: 0.15, isRest: true },  // Quarter rest
+				{ token: '4', units: 4, weight: 0.55 },  // Half note - primary
+				{ token: '2', units: 2, weight: 0.25 },  // Quarter note - secondary
+				{ token: '4', units: 4, weight: 0.12, isRest: true },  // Half rest
+				{ token: '2', units: 2, weight: 0.08, isRest: true },  // Quarter rest
 			];
 			out.push(buildBarFromDurations(lhDurations, unitsPerBar, pickChordNote));
 			continue;
 		}
 
 		if (style === 'quarters') {
-			// Grade 5+: use the full duration system like RH
+			// Grade 5+: still favor longer notes for bass stability
+			// Much higher weight on half notes, reduced eighths
 			const lhDurations: Duration[] = [
-				{ token: '4', units: 4, weight: 0.20 },  // Half note
-				{ token: '3', units: 3, weight: 0.12 }, // Dotted quarter
-				{ token: '2', units: 2, weight: 0.35 },  // Quarter note
-				{ token: '', units: 1, weight: 0.15 },   // Eighth note
-				{ token: '4', units: 4, weight: 0.06, isRest: true },  // Half rest
-				{ token: '2', units: 2, weight: 0.08, isRest: true },  // Quarter rest
-				{ token: '', units: 1, weight: 0.04, isRest: true },   // Eighth rest
+				{ token: '4', units: 4, weight: 0.40 },  // Half note - strong preference
+				{ token: '3', units: 3, weight: 0.15 },  // Dotted quarter
+				{ token: '2', units: 2, weight: 0.30 },  // Quarter note
+				{ token: '', units: 1, weight: 0.05 },   // Eighth note - rare
+				{ token: '4', units: 4, weight: 0.05, isRest: true },  // Half rest
+				{ token: '2', units: 2, weight: 0.04, isRest: true },  // Quarter rest
+				{ token: '', units: 1, weight: 0.01, isRest: true },   // Eighth rest - very rare
 			];
 			out.push(buildBarFromDurations(lhDurations, unitsPerBar, pickChordNote));
 			continue;
@@ -482,10 +543,16 @@ export function getPreset(grade: number, totalBars: number, barsPerLine: number)
 	// Base unit is always 1/8, so calculate units per bar accordingly
 	const unitsPerBar = meterNum * (8 / meterDen);
 
-	const notePoolRH: string[] = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
-	if (effComplexity >= 0.4) notePoolRH.push("c'", "d'");
-	if (effComplexity >= 0.55) notePoolRH.push("e'");
+	// RH note pool: Start with notes around middle C, spanning both below and above
+	// ABC octaves: C = C3, c = C4 (middle C), c' = C5
+	// Base range: G3 to G4 (comfortable treble clef range centered on middle C)
+	const notePoolRH: string[] = ['G', 'A', 'B', 'c', 'd', 'e', 'f', 'g'];
+	// Add higher notes at increased complexity
+	if (effComplexity >= 0.3) notePoolRH.push('a', 'b');
+	if (effComplexity >= 0.5) notePoolRH.push("c'", "d'");
+	if (effComplexity >= 0.7) notePoolRH.push("e'");
 
+	// LH note pool: Bass clef range
 	const notePoolLH: string[] = ['C,', 'D,', 'E,', 'F,', 'G,', 'A,', 'B,'];
 	if (effComplexity >= 0.35) notePoolLH.push('C', 'D', 'E', 'F', 'G', 'A', 'B');
 
