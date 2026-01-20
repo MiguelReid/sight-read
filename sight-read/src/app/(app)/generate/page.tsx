@@ -590,13 +590,8 @@ export default function Generate() {
 		<div className="generate-page p-4 md:p-8 flex flex-col lg:grid lg:grid-cols-[280px_1fr] gap-2 md:gap-8 items-start justify-end lg:justify-start">
 			{/* Controls - compact bar on mobile */}
 			<div className="no-print flex flex-col gap-2 md:gap-4 w-full lg:w-auto order-1">
-				<div className="hidden md:block">
-					<h3 className="text-xl md:text-2xl font-bold m-0">Sight Reading Practice</h3>
-				</div>
-
 				<div className="flex flex-row lg:flex-col gap-3 md:gap-4 flex-wrap items-center lg:items-start">
 					<div className="flex flex-col gap-1 min-w-[120px]">
-						<label htmlFor="grade-select" className="font-semibold text-xs md:text-sm">Grade</label>
 						<select
 							id="grade-select"
 							value={grade}
