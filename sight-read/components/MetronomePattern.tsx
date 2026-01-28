@@ -1,6 +1,6 @@
 'use client';
 
-import { Star } from 'lucide-react';
+import { ChevronUp } from 'lucide-react';
 import type { MetronomeBeatState } from '@/lib/playback';
 
 interface MetronomePatternProps {
@@ -46,7 +46,7 @@ export default function MetronomePattern({ pattern, onChange, className }: Metro
           aria-label={`${beatLabel(state)} for beat ${index + 1}`}
           title={`Beat ${index + 1}: ${beatLabel(state)}`}
         >
-          {state === 'accent' && <Star size={14} />}
+          {state === 'accent' && <ChevronUp size={18} strokeWidth={2.5} />}
         </button>
       ))}
     </div>

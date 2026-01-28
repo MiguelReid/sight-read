@@ -535,6 +535,7 @@ body {
 
 .btmnav-metronome-pattern {
   justify-content: center;
+  gap: clamp(10px, 5vw, 20px);
   padding-top: 8px;
   border-top: 1px solid #e2e8f0;
 }
@@ -601,13 +602,15 @@ body {
 /* Metronome beat pattern */
 .metronome-pattern {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: clamp(8px, 4vw, 16px);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .metronome-beat {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 2px solid #cbd5e1;
   background: transparent;
@@ -632,14 +635,14 @@ body {
 }
 
 .metronome-beat[data-state='normal'] {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: #A1A1FF;
+  border-color: #A1A1FF;
   color: #ffffff;
 }
 
 .metronome-beat[data-state='accent'] {
-  background: #f97316;
-  border-color: #f97316;
+  background: #A1A1FF;
+  border-color: #A1A1FF;
   color: #ffffff;
 }
 
