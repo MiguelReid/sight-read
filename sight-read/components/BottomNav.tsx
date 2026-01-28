@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { Home, Music, Settings, Play, Square, Sparkles, Minus, Plus, Clock } from 'lucide-react';
 import { usePlayback } from '@/lib/playback';
+import MetronomePattern from './MetronomePattern';
 
 const navItems = [
     { href: '/', label: 'Home', icon: Home },
@@ -19,7 +20,20 @@ export default function BottomNav() {
     const popupRef = useRef<HTMLDivElement>(null);
     
     // Use shared playback service
-    const { isPlaying, canPlay, play, stop, requestGenerate, bpm, setBpm, resetBpm } = usePlayback();
+    const {
+        isPlaying,
+        canPlay,
+        play,
+        stop,
+        requestGenerate,
+        bpm,
+        setBpm,
+        resetBpm,
+        metronomeEnabled,
+        setMetronomeEnabled,
+        metronomePattern,
+        setMetronomeBeat,
+    } = usePlayback();
 
     // Close popup when clicking outside
     useEffect(() => {
@@ -86,27 +100,47 @@ export default function BottomNav() {
                             {/* BPM Popup */}
                             {showBpmPopup && (
                                 <div className="btmnav-bpm-popup">
-                                    <button
-                                        onClick={() => setBpm(bpm - 2)}
-                                        className="btmnav-bpm-step"
-                                        aria-label="Decrease tempo"
-                                    >
-                                        <Minus size={16} />
-                                    </button>
-                                    <button
-                                        onClick={resetBpm}
-                                        className="btmnav-bpm-value"
-                                        title="Reset to original tempo"
-                                    >
-                                        {bpm}
-                                    </button>
-                                    <button
-                                        onClick={() => setBpm(bpm + 2)}
-                                        className="btmnav-bpm-step"
-                                        aria-label="Increase tempo"
-                                    >
-                                        <Plus size={16} />
-                                    </button>
+                                    <div className="btmnav-bpm-row">
+                                        <button
+                                            onClick={() => setBpm(bpm - 2)}
+                                            className="btmnav-bpm-step"
+                                            aria-label="Decrease tempo"
+                                        >
+                                            <Minus size={16} />
+                                        </button>
+                                        <button
+                                            onClick={resetBpm}
+                                            className="btmnav-bpm-value"
+                                            title="Reset to original tempo"
+                                        >
+                                            {bpm}
+                                        </button>
+                                        <button
+                                            onClick={() => setBpm(bpm + 2)}
+                                            className="btmnav-bpm-step"
+                                            aria-label="Increase tempo"
+                                        >
+                                            <Plus size={16} />
+                                        </button>
+                                    </div>
+                                    <div className="btmnav-metronome-toggle">
+                                        <span className="btmnav-metronome-label">Metronome</span>
+                                        <button
+                                            type="button"
+                                            className={`btmnav-toggle ${metronomeEnabled ? 'btmnav-toggle-on' : ''}`}
+                                            onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+                                            aria-pressed={metronomeEnabled}
+                                        >
+                                            {metronomeEnabled ? 'On' : 'Off'}
+                                        </button>
+                                    </div>
+                                    {metronomeEnabled && (
+                                        <MetronomePattern
+                                            pattern={metronomePattern}
+                                            onChange={setMetronomeBeat}
+                                            className="btmnav-metronome-pattern"
+                                        />
+                                    )}
                                 </div>
                             )}
                         </div>

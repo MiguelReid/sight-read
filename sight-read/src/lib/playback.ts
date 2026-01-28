@@ -20,6 +20,9 @@ interface SynthLike {
 type PlaybackListener = (state: PlaybackState) => void;
 type GenerateListener = () => void;
 type BpmListener = (bpm: number) => void;
+type MetronomeListener = (state: MetronomeState) => void;
+
+export type MetronomeBeatState = 'normal' | 'mute' | 'accent';
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -29,6 +32,13 @@ export interface PlaybackState {
 export interface MusicData {
   visualObj: unknown;
   tempo: number;
+  meterNum: number;
+  meterDen: number;
+}
+
+export interface MetronomeState {
+  enabled: boolean;
+  pattern: MetronomeBeatState[];
   meterNum: number;
   meterDen: number;
 }
@@ -43,9 +53,16 @@ let currentMusic: MusicData | null = null;
 let isPlaying = false;
 let currentBpm = 72;
 let generatedBpm = 72; // Store the original generated tempo
+let metronomeEnabled = false;
+let metronomePattern: MetronomeBeatState[] = Array.from({ length: 4 }, () => 'normal');
+let metronomeMeterNum = 4;
+let metronomeMeterDen = 4;
+let metronomeTimer: ReturnType<typeof setInterval> | null = null;
+let metronomeBeatIndex = 0;
 const listeners = new Set<PlaybackListener>();
 const generateListeners = new Set<GenerateListener>();
 const bpmListeners = new Set<BpmListener>();
+const metronomeListeners = new Set<MetronomeListener>();
 
 function notifyListeners() {
   const state: PlaybackState = { isPlaying, canPlay: currentMusic !== null };
@@ -72,6 +89,31 @@ function subscribeBpm(listener: BpmListener): () => void {
   return () => bpmListeners.delete(listener);
 }
 
+function notifyMetronomeListeners() {
+  const state: MetronomeState = {
+    enabled: metronomeEnabled,
+    pattern: [...metronomePattern],
+    meterNum: metronomeMeterNum,
+    meterDen: metronomeMeterDen,
+  };
+  metronomeListeners.forEach(listener => listener(state));
+}
+
+function getMetronomeState(): MetronomeState {
+  return {
+    enabled: metronomeEnabled,
+    pattern: [...metronomePattern],
+    meterNum: metronomeMeterNum,
+    meterDen: metronomeMeterDen,
+  };
+}
+
+function subscribeMetronome(listener: MetronomeListener): () => void {
+  metronomeListeners.add(listener);
+  listener(getMetronomeState());
+  return () => metronomeListeners.delete(listener);
+}
+
 export function getBpm(): number {
   return currentBpm;
 }
@@ -79,11 +121,13 @@ export function getBpm(): number {
 export function setBpm(bpm: number): void {
   currentBpm = Math.max(40, Math.min(240, bpm));
   notifyBpmListeners();
+  updateMetronomeTimer();
 }
 
 export function resetBpm(): void {
   currentBpm = generatedBpm;
   notifyBpmListeners();
+  updateMetronomeTimer();
 }
 
 export function setMusic(music: MusicData | null): void {
@@ -91,9 +135,102 @@ export function setMusic(music: MusicData | null): void {
   if (music) {
     generatedBpm = music.tempo;
     currentBpm = music.tempo;
+    metronomeMeterNum = music.meterNum;
+    metronomeMeterDen = music.meterDen;
+    if (metronomeEnabled) {
+      resetMetronomePattern();
+    } else if (metronomePattern.length !== metronomeMeterNum) {
+      metronomePattern = Array.from({ length: metronomeMeterNum }, () => 'normal');
+      metronomeBeatIndex = 0;
+    }
     notifyBpmListeners();
+    notifyMetronomeListeners();
+    updateMetronomeTimer();
   }
   notifyListeners();
+}
+
+function getMetronomeBeatIntervalMs(): number {
+  const meterNum = metronomeMeterNum || 4;
+  const meterDen = metronomeMeterDen || 4;
+  const quarterEquiv = (4 * meterNum) / meterDen;
+  const msPerMeasure = Math.round((60000 / currentBpm) * quarterEquiv);
+  return Math.max(120, Math.round(msPerMeasure / meterNum));
+}
+
+function playMetronomeClick(state: MetronomeBeatState) {
+  if (state === 'mute') return;
+  if (!audioCtx) {
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+    audioCtx = new AC();
+  }
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const now = audioCtx.currentTime;
+  osc.frequency.value = state === 'accent' ? 1100 : 750;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.2, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.08);
+}
+
+function stopMetronomeTimer() {
+  if (metronomeTimer) {
+    clearInterval(metronomeTimer);
+    metronomeTimer = null;
+  }
+}
+
+function startMetronomeTimer() {
+  stopMetronomeTimer();
+  metronomeBeatIndex = 0;
+  const intervalMs = getMetronomeBeatIntervalMs();
+  const tick = () => {
+    if (!metronomeEnabled) return;
+    const pattern = metronomePattern.length ? metronomePattern : ['normal'];
+    const beatState = pattern[metronomeBeatIndex % pattern.length] ?? 'normal';
+    playMetronomeClick(beatState);
+    metronomeBeatIndex = (metronomeBeatIndex + 1) % pattern.length;
+  };
+  tick();
+  metronomeTimer = setInterval(tick, intervalMs);
+}
+
+function updateMetronomeTimer() {
+  if (!metronomeEnabled) return;
+  startMetronomeTimer();
+}
+
+export function setMetronomeEnabled(enabled: boolean): void {
+  metronomeEnabled = enabled;
+  if (metronomeEnabled) {
+    if (metronomePattern.length !== metronomeMeterNum) {
+      resetMetronomePattern();
+    }
+    startMetronomeTimer();
+  } else {
+    stopMetronomeTimer();
+  }
+  notifyMetronomeListeners();
+}
+
+export function resetMetronomePattern(): void {
+  metronomePattern = Array.from({ length: metronomeMeterNum }, () => 'normal');
+  metronomeBeatIndex = 0;
+  notifyMetronomeListeners();
+}
+
+export function setMetronomeBeat(index: number, state: MetronomeBeatState): void {
+  if (index < 0 || index >= metronomePattern.length) return;
+  metronomePattern = metronomePattern.map((beat, idx) => (idx === index ? state : beat));
+  notifyMetronomeListeners();
 }
 
 export async function play(): Promise<void> {
@@ -173,14 +310,23 @@ export interface UsePlaybackReturn extends PlaybackState {
   bpm: number;
   setBpm: (bpm: number) => void;
   resetBpm: () => void;
+  metronomeEnabled: boolean;
+  metronomePattern: MetronomeBeatState[];
+  meterNum: number;
+  meterDen: number;
+  setMetronomeEnabled: (enabled: boolean) => void;
+  resetMetronomePattern: () => void;
+  setMetronomeBeat: (index: number, state: MetronomeBeatState) => void;
 }
 
 export function usePlayback(): UsePlaybackReturn {
   const [state, setState] = useState<PlaybackState>(getState);
   const [bpm, setBpmState] = useState<number>(getBpm);
+  const [metronomeState, setMetronomeState] = useState<MetronomeState>(getMetronomeState);
 
   useEffect(() => subscribe(setState), []);
   useEffect(() => subscribeBpm(setBpmState), []);
+  useEffect(() => subscribeMetronome(setMetronomeState), []);
 
   return {
     ...state,
@@ -191,6 +337,13 @@ export function usePlayback(): UsePlaybackReturn {
     bpm,
     setBpm,
     resetBpm,
+    metronomeEnabled: metronomeState.enabled,
+    metronomePattern: metronomeState.pattern,
+    meterNum: metronomeState.meterNum,
+    meterDen: metronomeState.meterDen,
+    setMetronomeEnabled,
+    resetMetronomePattern,
+    setMetronomeBeat,
   };
 }
 

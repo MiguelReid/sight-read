@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import abcjs from 'abcjs';
 import { Clock } from 'lucide-react';
 import { usePlayback, useGenerateListener } from '@/lib/playback';
+import MetronomePattern from '../../../../components/MetronomePattern';
 import { generateAbcForPreset, getPreset, type Preset } from '@/lib/musicGeneration';
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
@@ -28,7 +29,20 @@ export default function Generate() {
 	const [layoutConfig, setLayoutConfig] = useState({ totalBars: 18, barsPerLine: 6 });
 	
 	// Use shared playback service (BPM is now managed there)
-	const { isPlaying, canPlay, play, stop, setMusic, bpm, setBpm, resetBpm } = usePlayback();
+	const {
+		isPlaying,
+		canPlay,
+		play,
+		stop,
+		setMusic,
+		bpm,
+		setBpm,
+		resetBpm,
+		metronomeEnabled,
+		setMetronomeEnabled,
+		metronomePattern,
+		setMetronomeBeat,
+	} = usePlayback();
 
 	useEffect(() => {
 		const handleResize = () => {
@@ -107,13 +121,40 @@ export default function Generate() {
 					))}
 				</select>
 
-				{/* Key display */}
-				<div className="text-gray-600 text-xs md:text-sm whitespace-nowrap">
-					Key: <span className="font-medium text-gray-800">{lastPreset ? lastPreset.key : '—'}</span>
+				{/* Desktop only: Generate/Play/Stop buttons */}
+				<div className="hidden md:flex flex-col gap-2 pt-3 mt-3 border-t border-gray-200">
+					<button
+						onClick={handleGenerate}
+						className="w-full px-3 py-2 bg-blue-500 text-white text-sm font-medium border-none rounded-lg cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors"
+					>
+						Generate
+					</button>
+					<div className="flex gap-2">
+						<button
+							onClick={play}
+							disabled={!canPlay || isPlaying}
+							className={`flex-1 px-3 py-2 text-white text-sm font-medium border-none rounded-lg transition-colors ${
+								isPlaying ? 'bg-green-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700 active:bg-green-800'
+							}`}
+							title="Play"
+						>
+							Play
+						</button>
+						<button
+							onClick={stop}
+							disabled={!isPlaying}
+							className={`flex-1 px-3 py-2 text-white text-sm font-medium border-none rounded-lg transition-colors ${
+								!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700 active:bg-red-800'
+							}`}
+							title="Stop"
+						>
+							Stop
+						</button>
+					</div>
 				</div>
 
-				{/* Desktop only: BPM control */}
-				<div className="hidden md:block mt-2">
+				{/* Desktop only: BPM + Metronome controls */}
+				<div className="hidden md:flex flex-col gap-3 pt-4 mt-4 border-t border-gray-200">
 					<div className="bpm-control">
 						<button
 							type="button"
@@ -145,37 +186,24 @@ export default function Generate() {
 						</button>
 						<span className="bpm-label">BPM</span>
 					</div>
-				</div>
-
-				{/* Desktop only: Generate/Play/Stop buttons */}
-				<div className="hidden md:flex flex-col gap-2 pt-3 mt-3 border-t border-gray-200">
-					<button
-						onClick={handleGenerate}
-						className="w-full px-3 py-2 bg-blue-500 text-white text-sm font-medium border-none rounded-lg cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors"
-					>
-						Generate
-					</button>
-					<div className="flex gap-2">
-						<button
-							onClick={play}
-							disabled={!canPlay || isPlaying}
-							className={`flex-1 px-3 py-2 text-white text-sm font-medium border-none rounded-lg transition-colors ${
-								isPlaying ? 'bg-green-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700 active:bg-green-800'
-							}`}
-							title="Play"
-						>
-							Play
-						</button>
-						<button
-							onClick={stop}
-							disabled={!isPlaying}
-							className={`flex-1 px-3 py-2 text-white text-sm font-medium border-none rounded-lg transition-colors ${
-								!isPlaying ? 'bg-red-300 cursor-default' : 'bg-red-600 cursor-pointer hover:bg-red-700 active:bg-red-800'
-							}`}
-							title="Stop"
-						>
-							Stop
-						</button>
+					<div className="metronome-panel">
+						<div className="metronome-header">
+							<span className="metronome-title">Metronome</span>
+							<button
+								type="button"
+								className={`metronome-toggle ${metronomeEnabled ? 'metronome-toggle-on' : ''}`}
+								onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+								aria-pressed={metronomeEnabled}
+							>
+								{metronomeEnabled ? 'On' : 'Off'}
+							</button>
+						</div>
+						{metronomeEnabled && (
+							<MetronomePattern
+								pattern={metronomePattern}
+								onChange={setMetronomeBeat}
+							/>
+						)}
 					</div>
 				</div>
 			</div>
