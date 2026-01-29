@@ -116,7 +116,7 @@ export default function Generate() {
 					className="p-2 md:p-2.5 rounded-lg border border-gray-300 bg-white text-black text-sm min-w-[100px] md:w-full"
 					aria-label="Select difficulty grade"
 				>
-					{Array.from({ length: 8 }, (_, i) => i + 1).map((g) => (
+					{Array.from({ length: 5 }, (_, i) => i + 1).map((g) => (
 						<option key={g} value={g}>Grade {g}</option>
 					))}
 				</select>

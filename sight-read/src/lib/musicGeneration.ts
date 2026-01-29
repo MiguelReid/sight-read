@@ -39,8 +39,6 @@ const MAJOR_KEYS: KeyDef[] = [
 	{ label: 'Db', acc: -5, min: 4, weight: 2.0 },
 	{ label: 'F#', acc: +6, min: 5, weight: 1.5 },
 	{ label: 'Gb', acc: -6, min: 5, weight: 1.5 },
-	{ label: 'C#', acc: +7, min: 6, weight: 1.0 },
-	{ label: 'Cb', acc: -7, min: 6, weight: 1.0 },
 ];
 const MINOR_KEYS: KeyDef[] = [
 	{ label: 'Am', acc: 0, min: 2, weight: 3.0 },
@@ -56,8 +54,6 @@ const MINOR_KEYS: KeyDef[] = [
 	{ label: 'Bbm', acc: -5, min: 4, weight: 2.0 },
 	{ label: 'D#m', acc: +6, min: 5, weight: 1.5 },
 	{ label: 'Ebm', acc: -6, min: 5, weight: 1.5 },
-	{ label: 'A#m', acc: +7, min: 6, weight: 1.0 },
-	{ label: 'Abm', acc: -7, min: 6, weight: 1.0 },
 ];
 const KEY_DEFS: KeyDef[] = [...MAJOR_KEYS, ...MINOR_KEYS];
 
@@ -70,12 +66,7 @@ const METER_OPTIONS = [
 	{ meter: '4/2', num: 4, den: 2, min: 5, weight: 1.0, strongBeats: [1], secondaryBeats: [3] },
 	{ meter: '4/4', num: 4, den: 4, min: 1, weight: 5.0, strongBeats: [1], secondaryBeats: [3] },
 	{ meter: '4/8', num: 4, den: 8, min: 3, weight: 1.3, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '6/4', num: 6, den: 4, min: 5, weight: 1.1, strongBeats: [1], secondaryBeats: [4] },
-	{ meter: '6/8', num: 6, den: 8, min: 3, weight: 2.4, strongBeats: [1], secondaryBeats: [4] },
-	{ meter: '9/8', num: 9, den: 8, min: 6, weight: 1.2, strongBeats: [1], secondaryBeats: [4, 7] },
-	{ meter: '12/8', num: 12, den: 8, min: 7, weight: 1.0, strongBeats: [1], secondaryBeats: [4, 7, 10] },
-	{ meter: '5/4', num: 5, den: 4, min: 7, weight: 0.9, strongBeats: [1], secondaryBeats: [4] },
-	{ meter: '7/8', num: 7, den: 8, min: 8, weight: 0.8, strongBeats: [1], secondaryBeats: [3, 5] },
+	{ meter: '6/8', num: 6, den: 8, min: 3, weight: 2.4, strongBeats: [1], secondaryBeats: [4] }
 ];
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
@@ -103,7 +94,7 @@ function pickFromWeightedMap<T>(items: T[], weights: number[]): T {
 }
 
 function pickKeyForGrade(grade: number): KeyDef {
-	const g = clamp(grade, 1, 8);
+	const g = clamp(grade, 1, 5);
 	// Filter to only keys available at this grade (like time signatures)
 	const avail = KEY_DEFS.filter(k => g >= k.min);
 	// Weight by the key's base weight, with a slight boost for keys that have been available longer
@@ -112,22 +103,19 @@ function pickKeyForGrade(grade: number): KeyDef {
 }
 
 function pickMeterForGrade(grade: number): { meter: string; num: number; den: number; strongBeats: number[]; secondaryBeats: number[] } {
-	const g = clamp(grade, 1, 8);
+	const g = clamp(grade, 1, 5);
 	const avail = METER_OPTIONS.filter(m => g >= m.min);
 	const choice = pickWeightedRandom(avail, m => m.weight * (1 + 0.15 * Math.max(0, g - m.min)));
 	return { meter: choice.meter, num: choice.num, den: choice.den, strongBeats: choice.strongBeats, secondaryBeats: choice.secondaryBeats };
 }
 
 function tempoRangeForGrade(grade: number): [number, number] {
-	switch (clamp(grade, 1, 8)) {
+	switch (clamp(grade, 1, 5)) {
 		case 1: return [60, 72];
 		case 2: return [60, 84];
 		case 3: return [60, 96];
 		case 4: return [70, 110];
 		case 5: return [70, 120];
-		case 6: return [80, 132];
-		case 7: return [80, 144];
-		case 8: return [80, 160];
 		default: return [72, 100];
 	}
 }
@@ -213,11 +201,6 @@ const CHORD_PROGRESSIONS: ProgressionDef[] = [
 	{ prog: [1, 4, 3, 6], min: 5, weight: 1.2 },        // I-IV-iii-vi
 	{ prog: [6, 3, 4, 1], min: 5, weight: 1.0 },        // vi-iii-IV-I
 	{ prog: [2, 3, 4, 5], min: 5, weight: 1.0 },        // ii-iii-IV-V (ascending)
-	
-	// Include vii° (grade 6+) - rare but adds color
-	{ prog: [1, 7, 1], min: 6, weight: 0.8 },           // I-vii°-I (neighbor)
-	{ prog: [3, 6, 7, 1], min: 6, weight: 0.6 },        // iii-vi-vii°-I
-	{ prog: [1, 4, 7, 3], min: 6, weight: 0.5 },        // I-IV-vii°-iii
 ];
 
 function buildChordPlan(bars: number, grade: number): ChordDegree[] {
@@ -225,7 +208,7 @@ function buildChordPlan(bars: number, grade: number): ChordDegree[] {
 	
 	// Always end with V-I cadence
 	const cadential: ChordDegree[] = bars >= 2 ? [5, 1] : [1];
-	const g = clamp(grade, 1, 8);
+	const g = clamp(grade, 1, 5);
 	
 	// Available progressions at this grade
 	const available = CHORD_PROGRESSIONS.filter(p => g >= p.min);
@@ -524,7 +507,7 @@ function pickSpecificChordTone(letters: [string, string, string], which: 'root' 
 }
 
 export function getPreset(grade: number, totalBars: number, barsPerLine: number): Preset {
-	const g = clamp(grade, 1, 8);
+	const g = clamp(grade, 1, 5);
 	const keyDef = pickKeyForGrade(g);
 	const key = keyDef.label;
 	const keyHardness = Math.abs(keyDef.acc) / 7;
@@ -560,7 +543,7 @@ export function getPreset(grade: number, totalBars: number, barsPerLine: number)
 	if (g <= 2) lhStyle = 'none';
 	else if (g === 3) lhStyle = 'drone';
 	else if (g === 4) lhStyle = 'halves';
-	else if (g >= 5) lhStyle = 'quarters';
+	else if (g === 5) lhStyle = 'quarters';
 
 	return {
 		grade: g,
@@ -611,12 +594,7 @@ export function generateAbcForPreset(preset: Preset): string {
 
 	const endTriad = triadForDegree(endDegree, tonicLetter);
 
-	const add7 = preset.grade >= 6;
-	const add9 = preset.grade >= 8;
-	const endExts: string[] = add7 ? [diatonicExtension(tonicLetter, endDegree + 6)] : [];
-	if (add9) {
-		endExts.push(diatonicExtension(tonicLetter, endDegree + 1));
-	}
+
 
 	const lastIdx = bars - 1;
 	const rhLastTokens = rhBars[lastIdx].trim().split(/\s+/);
@@ -634,10 +612,8 @@ export function generateAbcForPreset(preset: Preset): string {
 		let lastLetters: string[] = [];
 		if (preset.grade <= 3) {
 			lastLetters = [endTriad[0], endTriad[2]];
-		} else if (preset.grade <= 6) {
-			lastLetters = [...endTriad];
 		} else {
-			lastLetters = [...endTriad, ...endExts];
+			lastLetters = [...endTriad];
 		}
 
 		lhLastTokens[lhLastTokens.length - 1] = buildChordToken(notePoolLH, lastLetters, lhLastDur, true);
