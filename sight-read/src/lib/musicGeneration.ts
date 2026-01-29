@@ -21,6 +21,11 @@ export type Preset = {
 	meterDen: number;
 	strongBeats: number[];
 	secondaryBeats: number[];
+	// Feature flags - set based on grade in getPreset()
+	features: {
+		dynamics: ('p' | 'f')[] | ('p' | 'mp' | 'mf' | 'f')[] | ('p' | 'mp' | 'mf' | 'f' | 'ff')[];
+		useCrescendo: boolean;
+	};
 };
 
 type KeyDef = { label: string; acc: number; min: number; weight: number }; // acc = number of sharps(+) or flats(-), min = minimum grade
@@ -255,7 +260,7 @@ function pickMelodyLetter(
 		if (preferredLetters.includes(letter)) w *= 2.2;
 		if (prevLetter) {
 			const distance = scaleDistance(scaleLetters, prevLetter, letter);
-			if (distance === 0) w *= 1.6;
+			if (distance === 0) w = 0; // No repeated notes
 			else if (distance === 1) w *= 1.4;
 			else if (distance === 2) w *= 0.9;
 			else if (distance === 3) w *= 0.4;
@@ -555,6 +560,15 @@ export function getPreset(grade: number, totalBars: number, barsPerLine: number)
 	else if (g === 3) lhStyle = 'halves';     // Three-note chords
 	else if (g >= 4) lhStyle = 'quarters';    // More complex
 
+	// Feature flags based on grade
+	const features: Preset['features'] = {
+		// G1: p, f | G2+: +mp, mf | G4+: +ff
+		dynamics: g >= 4 ? ['p', 'mp', 'mf', 'f', 'ff'] 
+		        : g >= 2 ? ['p', 'mp', 'mf', 'f'] 
+		        : ['p', 'f'],
+		useCrescendo: true, // All grades get crescendo/diminuendo
+	};
+
 	return {
 		grade: g,
 		tempo,
@@ -572,6 +586,7 @@ export function getPreset(grade: number, totalBars: number, barsPerLine: number)
 		meterDen,
 		strongBeats: strongBeats,
 		secondaryBeats: secondaryBeats,
+		features,
 	};
 }
 
@@ -626,6 +641,38 @@ export function generateAbcForPreset(preset: Preset): string {
 
 		lhLastTokens[lhLastTokens.length - 1] = buildChordToken(notePoolLH, lastLetters, lhLastDur, true);
 		lhBars[lastIdx] = lhLastTokens.join(' ');
+	}
+
+	// ============ DYNAMICS ============
+	// Add dynamic marking at the start, and optionally at mid-point for longer pieces
+	const { dynamics, useCrescendo } = preset.features;
+	const pickDynamic = () => dynamics[Math.floor(Math.random() * dynamics.length)];
+	
+	// Opening dynamic
+	const openingDynamic = `!${pickDynamic()}!`;
+	rhBars[0] = openingDynamic + rhBars[0];
+	
+	// Mid-piece dynamic change for pieces with 4+ bars (50% chance)
+	if (bars >= 4 && Math.random() < 0.5) {
+		const midBar = Math.floor(bars / 2);
+		const midDynamic = `!${pickDynamic()}!`;
+		rhBars[midBar] = midDynamic + rhBars[midBar];
+	}
+	
+	// Crescendo or diminuendo (40% chance, spanning 1-2 bars)
+	if (useCrescendo && bars >= 4 && Math.random() < 0.4) {
+		// Start between bar 1 and third-to-last bar (avoid bar 0 which has opening dynamic)
+		const crescStart = 1 + Math.floor(Math.random() * (bars - 3));
+		// Randomly span 1 bar (50%) or 2 bars (50%)
+		const spanTwoBars = Math.random() < 0.5;
+		const crescEnd = spanTwoBars ? crescStart + 1 : crescStart;
+		const isCrescendo = Math.random() < 0.5;
+		// Start marker at beginning of start bar
+		rhBars[crescStart] = (isCrescendo ? '!<(!' : '!>(!') + rhBars[crescStart];
+		// End marker must be attached to the last note token in the bar
+		const endTokens = rhBars[crescEnd].trim().split(/\s+/);
+		endTokens[endTokens.length - 1] = endTokens[endTokens.length - 1] + (isCrescendo ? '!<)!' : '!>)!');
+		rhBars[crescEnd] = endTokens.join(' ');
 	}
 
 	const systems: string[] = [];
