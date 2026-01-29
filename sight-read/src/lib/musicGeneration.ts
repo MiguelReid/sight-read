@@ -125,18 +125,27 @@ type DurationPlan = {
 	durations: Duration[];
 };
 
-function planDurations(effComplexity: number): DurationPlan {
-	// Base weights for variety
-	const halfW = 0.18;          
-	const dottedQuarterW = 0.12;    
-	const quarterW = 0.28;       
-	const eighthW = 0.22 - 0.08 * effComplexity;
-	const sixteenthW = effComplexity >= 0.5 ? 0.06 * effComplexity : 0; // Only appears at higher grades
+function planDurations(effComplexity: number, meterDen: number): DurationPlan {
+	// For meters with larger beat values (smaller denominators like /2), 
+	// moderately boost longer note durations to avoid overwhelming note density
+	// meterDen 2 = half note beats, meterDen 4 = quarter beats, meterDen 8 = eighth beats
+	const denFactor = 4 / meterDen; // 2 for /2, 1 for /4, 0.5 for /8
+	const longBoost = denFactor > 1 ? (denFactor - 1) * 0.25 : 0; // Gentler boost for /2 meters
+	const shortPenalty = denFactor > 1 ? (denFactor - 1) * 0.15 : 0; // Gentler reduction for short notes
 
-	// Rests
-	const halfRestW = 0.06;
+	// Base weights for variety (adjusted by meter)
+	const wholeW = denFactor > 1 ? 0.06 * (denFactor - 1) : 0; // Modest whole notes for /2 meters
+	const halfW = 0.18 + longBoost;          
+	const dottedQuarterW = 0.12 + (longBoost * 0.3);    
+	const quarterW = 0.28;       
+	const eighthW = Math.max(0.10, 0.22 - 0.08 * effComplexity - shortPenalty);
+	const sixteenthW = (effComplexity >= 0.5 && denFactor <= 1) ? 0.06 * effComplexity : 0; // No 16ths in /2 meters
+
+	// Rests (also adjusted)
+	const wholeRestW = denFactor > 1 ? 0.02 * (denFactor - 1) : 0;
+	const halfRestW = 0.06 + (longBoost * 0.2);
 	const quarterRestW = 0.08;
-	const eighthRestW = 0.04;
+	const eighthRestW = Math.max(0.02, 0.04 - shortPenalty * 0.3);
 
 	const durations: Duration[] = [
 		{ token: '4', units: 4, weight: halfW },         
@@ -148,7 +157,13 @@ function planDurations(effComplexity: number): DurationPlan {
 		{ token: '', units: 1, weight: eighthRestW, isRest: true },
 	];
 
-	// Add sixteenth notes for higher complexity (grade 5+)
+	// Add whole notes for /2 time signatures
+	if (wholeW > 0) {
+		durations.unshift({ token: '8', units: 8, weight: wholeW }); // Whole note
+		durations.push({ token: '8', units: 8, weight: wholeRestW, isRest: true }); // Whole rest
+	}
+
+	// Add sixteenth notes for higher complexity (but not in /2 meters)
 	if (sixteenthW > 0) {
 		durations.push({ token: '/2', units: 0.5, weight: sixteenthW }); // Sixteenth note
 		durations.push({ token: '/2', units: 0.5, weight: 0.02, isRest: true }); // Sixteenth rest
@@ -190,9 +205,9 @@ const CHORD_PROGRESSIONS: ProgressionDef[] = [
 	{ prog: [4, 1, 5, 6], min: 4, weight: 1.5 },        // IV-I-V-vi
 	
 	// Add iii chord (grade 5)
-	{ prog: [1, 3, 4, 5], min: 5, weight: 1.8 },        // I-iii-IV-V
-	{ prog: [1, 3, 6, 4], min: 5, weight: 1.5 },        // I-iii-vi-IV
-	{ prog: [1, 5, 3, 4], min: 5, weight: 1.2 },        // I-V-iii-IV
+	{ prog: [1, 3, 4, 5], min: 5, weight: 1.0 },        // I-iii-IV-V
+	{ prog: [1, 3, 6, 4], min: 5, weight: 0.9 },        // I-iii-vi-IV
+	{ prog: [1, 5, 3, 4], min: 5, weight: 0.8 },        // I-V-iii-IV
 ];
 
 function buildChordPlan(bars: number, grade: number): ChordDegree[] {
@@ -502,8 +517,8 @@ export function getPreset(grade: number, totalBars: number, barsPerLine: number)
 	const key = keyDef.label;
 	const keyHardness = Math.abs(keyDef.acc) / 7;
 
-	const baseComplexity = (g - 1) / 7;
-	const effComplexity = clamp(baseComplexity - 0.35 * keyHardness + rand(-0.05, 0.05), 0, 1);
+	const baseComplexity = (g - 1) / 4; // 0 to 1 for grades 1-5
+	const effComplexity = clamp(baseComplexity - 0.35 * keyHardness + rand(-0.03, 0.03), 0, 0.85);
 
 	const [tMin, tMax] = tempoRangeForGrade(g);
 	const tempoScale = 1 - 0.15 * keyHardness;
@@ -512,22 +527,23 @@ export function getPreset(grade: number, totalBars: number, barsPerLine: number)
 	const meterOpt = pickMeterForGrade(g);
 	const { meter, num: meterNum, den: meterDen, strongBeats, secondaryBeats } = meterOpt;
 
-	const { noteLength, durations } = planDurations(effComplexity);
+	const { noteLength, durations } = planDurations(effComplexity, meterDen);
 	// Base unit is always 1/8, so calculate units per bar accordingly
 	const unitsPerBar = meterNum * (8 / meterDen);
 
 	// RH note pool: Start with notes around middle C, spanning both below and above
 	// ABC octaves: C = C3, c = C4 (middle C), c' = C5
 	// Base range: G3 to G4 (comfortable treble clef range centered on middle C)
-	const notePoolRH: string[] = ['G', 'A', 'B', 'c', 'd', 'e', 'f', 'g'];
-	// Add higher notes at increased complexity
-	if (effComplexity >= 0.3) notePoolRH.push('a', 'b');
-	if (effComplexity >= 0.5) notePoolRH.push("c'", "d'");
-	if (effComplexity >= 0.7) notePoolRH.push("e'");
+	// Weight notes toward the middle of the staff - add duplicates for center notes
+	const notePoolRH: string[] = ['G', 'A', 'B', 'B', 'c', 'c', 'c', 'd', 'd', 'd', 'e', 'e', 'f', 'g'];
+	// Add higher notes at increased complexity (higher thresholds, fewer duplicates)
+	if (effComplexity >= 0.5) notePoolRH.push('a', 'b');
+	if (effComplexity >= 0.7) notePoolRH.push("c'");
+	if (effComplexity >= 0.85) notePoolRH.push("d'");
 
 	// LH note pool: Bass clef range
 	const notePoolLH: string[] = ['C,', 'D,', 'E,', 'F,', 'G,', 'A,', 'B,'];
-	if (effComplexity >= 0.35) notePoolLH.push('C', 'D', 'E', 'F', 'G', 'A', 'B');
+	if (effComplexity >= 0.5) notePoolLH.push('C', 'D', 'E', 'F', 'G', 'A', 'B');
 
 	let lhStyle: LHStyle = 'none';
 	if (g <= 2) lhStyle = 'none';
