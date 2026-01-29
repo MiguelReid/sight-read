@@ -178,29 +178,21 @@ const CHORD_PROGRESSIONS: ProgressionDef[] = [
 	{ prog: [1, 4, 2, 5], min: 2, weight: 2.5 },        // I-IV-ii-V
 	{ prog: [2, 5, 1], min: 2, weight: 2.2 },           // ii-V-I (jazz essential)
 	{ prog: [1, 2, 4, 5], min: 2, weight: 2.0 },        // I-ii-IV-V
+
+	// Add vi chord (grade 3+)
+	{ prog: [1, 6, 4, 5], min: 3, weight: 3.0 },        // I-vi-IV-V (50s)
+	{ prog: [1, 5, 6, 4], min: 3, weight: 2.8 },        // I-V-vi-IV (pop)
+	{ prog: [6, 4, 1, 5], min: 3, weight: 2.5 },        // vi-IV-I-V (modern pop)
 	
-	// Add vi chord (grade 2+)
-	{ prog: [1, 6, 4, 5], min: 2, weight: 3.0 },        // I-vi-IV-V (50s)
-	{ prog: [1, 5, 6, 4], min: 2, weight: 2.8 },        // I-V-vi-IV (pop)
-	{ prog: [6, 4, 1, 5], min: 2, weight: 2.5 },        // vi-IV-I-V (modern pop)
-	{ prog: [1, 6, 2, 5], min: 2, weight: 2.2 },        // I-vi-ii-V (circle)
+	// More complex (grade 4+)
+	{ prog: [1, 4, 6, 5], min: 4, weight: 2.0 },        // I-IV-vi-V
+	{ prog: [1, 6, 4, 2], min: 4, weight: 1.8 },        // I-vi-IV-ii
+	{ prog: [4, 1, 5, 6], min: 4, weight: 1.5 },        // IV-I-V-vi
 	
-	// More complex (grade 3+)
-	{ prog: [1, 4, 6, 5], min: 3, weight: 2.0 },        // I-IV-vi-V
-	{ prog: [6, 2, 5, 1], min: 3, weight: 2.2 },        // vi-ii-V-I
-	{ prog: [1, 6, 4, 2], min: 3, weight: 1.8 },        // I-vi-IV-ii
-	{ prog: [4, 1, 5, 6], min: 3, weight: 1.5 },        // IV-I-V-vi
-	
-	// Add iii chord (grade 4+)
-	{ prog: [1, 3, 4, 5], min: 4, weight: 1.8 },        // I-iii-IV-V
-	{ prog: [1, 3, 6, 4], min: 4, weight: 1.5 },        // I-iii-vi-IV
-	{ prog: [3, 6, 2, 5], min: 4, weight: 1.5 },        // iii-vi-ii-V (descending 3rds)
-	{ prog: [1, 5, 3, 4], min: 4, weight: 1.2 },        // I-V-iii-IV
-	
-	// Advanced (grade 5+)
-	{ prog: [1, 4, 3, 6], min: 5, weight: 1.2 },        // I-IV-iii-vi
-	{ prog: [6, 3, 4, 1], min: 5, weight: 1.0 },        // vi-iii-IV-I
-	{ prog: [2, 3, 4, 5], min: 5, weight: 1.0 },        // ii-iii-IV-V (ascending)
+	// Add iii chord (grade 5)
+	{ prog: [1, 3, 4, 5], min: 5, weight: 1.8 },        // I-iii-IV-V
+	{ prog: [1, 3, 6, 4], min: 5, weight: 1.5 },        // I-iii-vi-IV
+	{ prog: [1, 5, 3, 4], min: 5, weight: 1.2 },        // I-V-iii-IV
 ];
 
 function buildChordPlan(bars: number, grade: number): ChordDegree[] {
@@ -210,7 +202,7 @@ function buildChordPlan(bars: number, grade: number): ChordDegree[] {
 	const cadential: ChordDegree[] = bars >= 2 ? [5, 1] : [1];
 	const g = clamp(grade, 1, 5);
 	
-	// Available progressions at this grade
+	// Available progressions at n grade
 	const available = CHORD_PROGRESSIONS.filter(p => g >= p.min);
 	
 	const degrees: ChordDegree[] = [];
@@ -238,7 +230,7 @@ function scaleDistance(scale: string[], from: string, to: string): number {
 	return Math.min(forward, backward);
 }
 
-// Want to favour small steps to make it sound more musical
+// Favour small steps for musicality
 function pickMelodyLetter(
 	scaleLetters: string[],
 	preferredLetters: string[],
@@ -252,8 +244,8 @@ function pickMelodyLetter(
 			if (distance === 0) w *= 1.6;
 			else if (distance === 1) w *= 1.4;
 			else if (distance === 2) w *= 0.9;
-			else if (distance === 3) w *= 0.5;
-			else w *= 0.3;
+			else if (distance === 3) w *= 0.4;
+			else w *= 0.2;
 		}
 		return w;
 	});
@@ -431,7 +423,6 @@ function makeLeftHandBars(
 	tonicLetter: string
 ): string[] {
 	if (style === 'none') {
-		// For grades 1-2 we still render LH staff but fill with full-bar rests.
 		const rest = `z${tokenFromUnits(unitsPerBar)}`;
 		return Array.from({ length: bars }, () => rest);
 	}
@@ -440,8 +431,7 @@ function makeLeftHandBars(
 	for (let b = 0; b < bars; b++) {
 		const chordLetters = triadForDegree(chordDegrees[b] ?? 1, tonicLetter);
 		
-		// Pick chord tones with weighted probability: root most common, then fifth, then third
-		// This creates a more musical bass line while still allowing variety
+		// Chord tones with weighted probability: root most common, then fifth, then third
 		const pickChordNote = () => {
 			const toneWeights: [string, number][] = [
 				[chordLetters[0], 3.0],  // Root - most common for bass
@@ -481,7 +471,7 @@ function makeLeftHandBars(
 		}
 
 		if (style === 'quarters') {
-			// Grade 5+: still favor longer notes for bass stability
+			// Only grade 5: still favor longer notes for bass stability
 			// Much higher weight on half notes, reduced eighths
 			const lhDurations: Duration[] = [
 				{ token: '4', units: 4, weight: 0.40 },  // Half note - strong preference
@@ -593,8 +583,6 @@ export function generateAbcForPreset(preset: Preset): string {
 	const endDegree = chordDegrees[chordDegrees.length - 1] ?? 1;
 
 	const endTriad = triadForDegree(endDegree, tonicLetter);
-
-
 
 	const lastIdx = bars - 1;
 	const rhLastTokens = rhBars[lastIdx].trim().split(/\s+/);
