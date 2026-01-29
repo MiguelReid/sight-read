@@ -194,8 +194,8 @@ function startMetronomeTimer() {
   const intervalMs = getMetronomeBeatIntervalMs();
   const tick = () => {
     if (!metronomeEnabled) return;
-    const pattern = metronomePattern.length ? metronomePattern : ['normal'];
-    const beatState = pattern[metronomeBeatIndex % pattern.length] ?? 'normal';
+    const pattern = metronomePattern.length ? metronomePattern : ['normal'] as MetronomeBeatState[];
+    const beatState: MetronomeBeatState = pattern[metronomeBeatIndex % pattern.length] ?? 'normal';
     playMetronomeClick(beatState);
     metronomeBeatIndex = (metronomeBeatIndex + 1) % pattern.length;
   };
