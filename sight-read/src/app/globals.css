@@ -337,7 +337,7 @@ body {
 }
 
 .btmnav-item-active {
-  color: #2563eb;
+  color: #3282B8;
 }
 
 .btmnav-label {
@@ -365,19 +365,19 @@ body {
 }
 
 .btmnav-btn-generate {
-  background: #3b82f6;
+  background: #3282B8;
   color: white;
 }
 .btmnav-btn-generate:hover {
-  background: #2563eb;
+  background: #0F4C75;
 }
 
 .btmnav-btn-play {
-  background: #22c55e;
+  background: #16a34a;
   color: white;
 }
 .btmnav-btn-play:hover:not(:disabled) {
-  background: #16a34a;
+  background: #15803d;
 }
 
 .btmnav-btn-stop {
@@ -395,11 +395,11 @@ body {
 
 /* BPM Control in BottomNav */
 .btmnav-btn-bpm {
-  background: #6366f1;
+  background: #1B262C;
   color: white;
 }
 .btmnav-btn-bpm:hover {
-  background: #4f46e5;
+  background: #0F4C75;
 }
 
 .btmnav-bpm-wrapper {
@@ -526,7 +526,7 @@ body {
 }
 
 .btmnav-toggle-on {
-  background: #22c55e;
+  background: #3282B8;
 }
 
 .btmnav-toggle-on::after {
@@ -592,7 +592,7 @@ body {
 }
 
 .metronome-toggle-on {
-  background: #22c55e;
+  background: #3282B8;
 }
 
 .metronome-toggle-on::after {
@@ -635,14 +635,14 @@ body {
 }
 
 .metronome-beat[data-state='normal'] {
-  background: #A1A1FF;
-  border-color: #A1A1FF;
+  background: #3282B8;
+  border-color: #3282B8;
   color: #ffffff;
 }
 
 .metronome-beat[data-state='accent'] {
-  background: #A1A1FF;
-  border-color: #A1A1FF;
+  background: #0F4C75;
+  border-color: #0F4C75;
   color: #ffffff;
 }
 

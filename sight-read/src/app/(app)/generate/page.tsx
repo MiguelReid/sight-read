@@ -121,11 +121,13 @@ export default function Generate() {
 					))}
 				</select>
 
-				{/* Desktop only: Generate/Play/Stop buttons */}
 				<div className="hidden md:flex flex-col gap-2 pt-3 mt-3 border-t border-gray-200">
 					<button
 						onClick={handleGenerate}
-						className="w-full px-3 py-2 bg-blue-500 text-white text-sm font-medium border-none rounded-lg cursor-pointer hover:bg-blue-600 active:bg-blue-700 transition-colors"
+						className="w-full px-3 py-2 text-white text-sm font-medium border-none rounded-lg cursor-pointer transition-colors"
+						style={{ backgroundColor: '#3282B8' }}
+						onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0F4C75'}
+						onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3282B8'}
 					>
 						Generate
 					</button>
@@ -133,9 +135,12 @@ export default function Generate() {
 						<button
 							onClick={play}
 							disabled={!canPlay || isPlaying}
-							className={`flex-1 px-3 py-2 text-white text-sm font-medium border-none rounded-lg transition-colors ${
-								isPlaying ? 'bg-green-300 cursor-default' : 'bg-green-600 cursor-pointer hover:bg-green-700 active:bg-green-800'
-							}`}
+							className="flex-1 px-3 py-2 text-white text-sm font-medium border-none rounded-lg transition-colors"
+							style={{ 
+								backgroundColor: isPlaying ? '#86efac' : '#16a34a',
+								color: isPlaying ? '#14532d' : 'white',
+								cursor: isPlaying ? 'default' : 'pointer'
+							}}
 							title="Play"
 						>
 							Play
