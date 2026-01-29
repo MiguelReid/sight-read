@@ -273,6 +273,11 @@ export async function play(): Promise<void> {
     });
     await synth.prime();
     await synth.start();
+
+    // Start metronome after music starts to stay in sync
+    if (metronomeEnabled) {
+      startMetronomeTimer();
+    }
   } catch (err) {
     // Reset state on error
     isPlaying = false;

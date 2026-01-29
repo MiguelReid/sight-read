@@ -395,11 +395,11 @@ body {
 
 /* BPM Control in BottomNav */
 .btmnav-btn-bpm {
-  background: #1B262C;
+  background: #7c3aed;
   color: white;
 }
 .btmnav-btn-bpm:hover {
-  background: #0F4C75;
+  background: #6d28d9;
 }
 
 .btmnav-bpm-wrapper {
