@@ -25,6 +25,12 @@
 *.pem
 Thumbs.db
 
+# IDE / Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
 # logs
 *.log
 
