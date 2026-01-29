@@ -26,47 +26,45 @@ export type Preset = {
 type KeyDef = { label: string; acc: number; min: number; weight: number }; // acc = number of sharps(+) or flats(-), min = minimum grade
 
 const MAJOR_KEYS: KeyDef[] = [
+	// Grade 1: C, G, F
 	{ label: 'C', acc: 0, min: 1, weight: 3.0 },
 	{ label: 'G', acc: +1, min: 1, weight: 3.0 },
 	{ label: 'F', acc: -1, min: 1, weight: 3.0 },
+	// Grade 2: +D
 	{ label: 'D', acc: +2, min: 2, weight: 3.0 },
-	{ label: 'Bb', acc: -2, min: 2, weight: 3.0 },
+	// Grade 3: +A, Bb, Eb
 	{ label: 'A', acc: +3, min: 3, weight: 2.7 },
+	{ label: 'Bb', acc: -2, min: 3, weight: 2.7 },
 	{ label: 'Eb', acc: -3, min: 3, weight: 2.7 },
-	{ label: 'E', acc: +4, min: 4, weight: 2.4 },
-	{ label: 'Ab', acc: -4, min: 4, weight: 2.4 },
-	{ label: 'B', acc: +5, min: 4, weight: 2.0 },
-	{ label: 'Db', acc: -5, min: 4, weight: 2.0 },
-	{ label: 'F#', acc: +6, min: 5, weight: 1.5 },
-	{ label: 'Gb', acc: -6, min: 5, weight: 1.5 },
+	// Grade 5: +E, Ab
+	{ label: 'E', acc: +4, min: 5, weight: 2.4 },
+	{ label: 'Ab', acc: -4, min: 5, weight: 2.4 },
 ];
 const MINOR_KEYS: KeyDef[] = [
-	{ label: 'Am', acc: 0, min: 2, weight: 3.0 },
+	// Grade 1: Am, Dm
+	{ label: 'Am', acc: 0, min: 1, weight: 3.0 },
+	{ label: 'Dm', acc: -1, min: 1, weight: 3.0 },
+	// Grade 2: +Em, Gm
 	{ label: 'Em', acc: +1, min: 2, weight: 3.0 },
-	{ label: 'Dm', acc: -1, min: 2, weight: 3.0 },
-	{ label: 'Bm', acc: +2, min: 3, weight: 3.0 },
-	{ label: 'Gm', acc: -2, min: 3, weight: 3.0 },
-	{ label: 'F#m', acc: +3, min: 3, weight: 2.7 },
-	{ label: 'Cm', acc: -3, min: 3, weight: 2.7 },
-	{ label: 'C#m', acc: +4, min: 4, weight: 2.4 },
-	{ label: 'Fm', acc: -4, min: 4, weight: 2.4 },
-	{ label: 'G#m', acc: +5, min: 4, weight: 2.0 },
-	{ label: 'Bbm', acc: -5, min: 4, weight: 2.0 },
-	{ label: 'D#m', acc: +6, min: 5, weight: 1.5 },
-	{ label: 'Ebm', acc: -6, min: 5, weight: 1.5 },
+	{ label: 'Gm', acc: -2, min: 2, weight: 3.0 },
+	// Grade 3: +Em (already), Bm
+	{ label: 'Bm', acc: +2, min: 3, weight: 2.7 },
+	// Grade 5: +F#m, Cm
+	{ label: 'F#m', acc: +3, min: 5, weight: 2.4 },
+	{ label: 'Cm', acc: -3, min: 5, weight: 2.4 },
 ];
 const KEY_DEFS: KeyDef[] = [...MAJOR_KEYS, ...MINOR_KEYS];
 
 const METER_OPTIONS = [
-	{ meter: '2/2', num: 2, den: 2, min: 2, weight: 2.2, strongBeats: [1], secondaryBeats: [] },
+	// Grade 1: 2/4, 3/4, 4/4
 	{ meter: '2/4', num: 2, den: 4, min: 1, weight: 3.5, strongBeats: [1], secondaryBeats: [] },
-	{ meter: '3/2', num: 3, den: 2, min: 4, weight: 1.4, strongBeats: [1], secondaryBeats: [3] },
 	{ meter: '3/4', num: 3, den: 4, min: 1, weight: 3.2, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '3/8', num: 3, den: 8, min: 3, weight: 1.6, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '4/2', num: 4, den: 2, min: 5, weight: 1.0, strongBeats: [1], secondaryBeats: [3] },
 	{ meter: '4/4', num: 4, den: 4, min: 1, weight: 5.0, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '4/8', num: 4, den: 8, min: 3, weight: 1.3, strongBeats: [1], secondaryBeats: [3] },
-	{ meter: '6/8', num: 6, den: 8, min: 3, weight: 2.4, strongBeats: [1], secondaryBeats: [4] }
+	// Grade 3+: compound and other meters
+	{ meter: '6/8', num: 6, den: 8, min: 3, weight: 2.4, strongBeats: [1], secondaryBeats: [4] },
+	{ meter: '3/8', num: 3, den: 8, min: 4, weight: 1.6, strongBeats: [1], secondaryBeats: [3] },
+	// Grade 5: more complex
+	{ meter: '2/2', num: 2, den: 2, min: 5, weight: 1.8, strongBeats: [1], secondaryBeats: [] },
 ];
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
@@ -125,7 +123,7 @@ type DurationPlan = {
 	durations: Duration[];
 };
 
-function planDurations(effComplexity: number, meterDen: number): DurationPlan {
+function planDurations(effComplexity: number, meterDen: number, grade: number): DurationPlan {
 	// For meters with larger beat values (smaller denominators like /2), 
 	// moderately boost longer note durations to avoid overwhelming note density
 	// meterDen 2 = half note beats, meterDen 4 = quarter beats, meterDen 8 = eighth beats
@@ -139,9 +137,10 @@ function planDurations(effComplexity: number, meterDen: number): DurationPlan {
 	const dottedQuarterW = 0.12 + (longBoost * 0.3);    
 	const quarterW = 0.28;       
 	const eighthW = Math.max(0.10, 0.22 - 0.08 * effComplexity - shortPenalty);
-	const sixteenthW = (effComplexity >= 0.5 && denFactor <= 1) ? 0.06 * effComplexity : 0; // No 16ths in /2 meters
+	// Semiquavers (16ths) only from Grade 3+, no 16ths in /2 meters
+	const sixteenthW = (grade >= 3 && denFactor <= 1) ? 0.06 * effComplexity : 0;
 
-	// Rests (also adjusted)
+	// Rests: quaver rests from G1, but dotted crotchet rests and more complex from G3+
 	const wholeRestW = denFactor > 1 ? 0.02 * (denFactor - 1) : 0;
 	const halfRestW = 0.06 + (longBoost * 0.2);
 	const quarterRestW = 0.08;
@@ -527,7 +526,7 @@ export function getPreset(grade: number, totalBars: number, barsPerLine: number)
 	const meterOpt = pickMeterForGrade(g);
 	const { meter, num: meterNum, den: meterDen, strongBeats, secondaryBeats } = meterOpt;
 
-	const { noteLength, durations } = planDurations(effComplexity, meterDen);
+	const { noteLength, durations } = planDurations(effComplexity, meterDen, g);
 	// Base unit is always 1/8, so calculate units per bar accordingly
 	const unitsPerBar = meterNum * (8 / meterDen);
 
@@ -545,11 +544,16 @@ export function getPreset(grade: number, totalBars: number, barsPerLine: number)
 	const notePoolLH: string[] = ['C,', 'D,', 'E,', 'F,', 'G,', 'A,', 'B,'];
 	if (effComplexity >= 0.5) notePoolLH.push('C', 'D', 'E', 'F', 'G', 'A', 'B');
 
+	// LH style based on grade:
+	// G1: five-finger position, no chords
+	// G2: two-note chords appear
+	// G3: three-note chords
+	// G4-5: more complex chords
 	let lhStyle: LHStyle = 'none';
-	if (g <= 2) lhStyle = 'none';
-	else if (g === 3) lhStyle = 'drone';
-	else if (g === 4) lhStyle = 'halves';
-	else if (g === 5) lhStyle = 'quarters';
+	if (g === 1) lhStyle = 'none';
+	else if (g === 2) lhStyle = 'drone';      // Two-note chords
+	else if (g === 3) lhStyle = 'halves';     // Three-note chords
+	else if (g >= 4) lhStyle = 'quarters';    // More complex
 
 	return {
 		grade: g,
