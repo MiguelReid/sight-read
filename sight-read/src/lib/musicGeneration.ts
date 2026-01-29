@@ -615,48 +615,40 @@ export function generateAbcForPreset(preset: Preset): string {
 		tonicLetter
 	);
 
-	const endDegree = chordDegrees[chordDegrees.length - 1] ?? 1;
-
-	const endTriad = triadForDegree(endDegree, tonicLetter);
-
+	// RH ending: use the tonic
 	const lastIdx = bars - 1;
 	const rhLastTokens = rhBars[lastIdx].trim().split(/\s+/);
 	const rhLastDur = extractDurationToken(rhLastTokens[rhLastTokens.length - 1]);
-	const rhEndPref: ('root' | 'third' | 'fifth')[] = Math.random() < 0.7 ? ['root', 'third', 'fifth'] : ['root', 'fifth', 'third'];
-	const rhEndLetter = pickSpecificChordTone(endTriad, rhEndPref[0]);
-	const rhLastNote = pickNoteFromPoolByLetter(notePoolRH, rhEndLetter, false) || rhLastTokens[rhLastTokens.length - 1];
+	const rhLastNote = pickNoteFromPoolByLetter(notePoolRH, tonicLetter, false) || rhLastTokens[rhLastTokens.length - 1];
 	rhLastTokens[rhLastTokens.length - 1] = `${rhLastNote}${rhLastDur}`;
 	rhBars[lastIdx] = rhLastTokens.join(' ');
 
+	// LH ending: use the tonic
 	if (preset.grade > 2) {
 		const lhLastTokens = lhBars[lastIdx].trim().split(/\s+/);
 		const lhLastDur = extractDurationToken(lhLastTokens[lhLastTokens.length - 1]);
-
-		let lastLetters: string[] = [];
-		if (preset.grade <= 3) {
-			lastLetters = [endTriad[0], endTriad[2]];
-		} else {
-			lastLetters = [...endTriad];
-		}
-
-		lhLastTokens[lhLastTokens.length - 1] = buildChordToken(notePoolLH, lastLetters, lhLastDur, true);
+		const lhLastNote = pickNoteFromPoolByLetter(notePoolLH, tonicLetter, true) || lhLastTokens[lhLastTokens.length - 1];
+		lhLastTokens[lhLastTokens.length - 1] = `${lhLastNote}${lhLastDur}`;
 		lhBars[lastIdx] = lhLastTokens.join(' ');
 	}
 
 	// ============ DYNAMICS ============
 	// Add dynamic marking at the start, and optionally at mid-point for longer pieces
 	const { dynamics, useCrescendo } = preset.features;
-	const pickDynamic = () => dynamics[Math.floor(Math.random() * dynamics.length)];
 	
 	// Opening dynamic
-	const openingDynamic = `!${pickDynamic()}!`;
-	rhBars[0] = openingDynamic + rhBars[0];
+	const openingDynamic = dynamics[Math.floor(Math.random() * dynamics.length)];
+	rhBars[0] = `!${openingDynamic}!` + rhBars[0];
 	
 	// Mid-piece dynamic change for pieces with 4+ bars (50% chance)
+	// Must be different from opening dynamic
 	if (bars >= 4 && Math.random() < 0.5) {
 		const midBar = Math.floor(bars / 2);
-		const midDynamic = `!${pickDynamic()}!`;
-		rhBars[midBar] = midDynamic + rhBars[midBar];
+		const availableDynamics = dynamics.filter(d => d !== openingDynamic);
+		if (availableDynamics.length > 0) {
+			const midDynamic = availableDynamics[Math.floor(Math.random() * availableDynamics.length)];
+			rhBars[midBar] = `!${midDynamic}!` + rhBars[midBar];
+		}
 	}
 	
 	// Crescendo or diminuendo (40% chance, spanning 1-2 bars)
